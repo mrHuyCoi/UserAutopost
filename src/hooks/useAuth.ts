@@ -13,7 +13,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
 }
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
