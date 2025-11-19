@@ -89,7 +89,7 @@ export const colorService = {
   async getColorsByDeviceId(deviceId: string): Promise<Color[]> {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/${deviceId}/colors`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
     });
     if (!response.ok) return [];
     const data = await response.json();
@@ -99,7 +99,7 @@ export const colorService = {
   async getColorById(colorId: string): Promise<Color | null> {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/v1/colors/${colorId}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
     });
     if (!response.ok) return null;
     const data = await response.json();
@@ -109,7 +109,7 @@ export const colorService = {
   async getColorToSelect(): Promise<Color[]> {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/v1/colors`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
     });
     if (!response.ok) return [];
     const data = await response.json();
