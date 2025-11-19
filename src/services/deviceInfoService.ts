@@ -2,7 +2,7 @@ import { DeviceInfo } from '../types/deviceTypes';
 import { getAuthToken } from './apiService';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.161:8000';
-
+const NGROK_SKIP_HEADER = { 'ngrok-skip-browser-warning': 'true' };
 export const deviceInfoService = {
   async getDeviceInfos(filter: { search?: string; brand?: string; sort_by?: string; sort_order?: 'asc' | 'desc' } = {}, pagination: { page?: number; limit?: number } = {}) {
     const token = getAuthToken();
@@ -16,7 +16,7 @@ export const deviceInfoService = {
     if (filter.sort_by) params.append('sort_by', filter.sort_by);
     if (filter.sort_order) params.append('sort_order', filter.sort_order);
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos?${params.toString()}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
     });
     if (!response.ok) throw new Error('Failed to fetch device infos');
     const data = await response.json();
@@ -34,7 +34,7 @@ export const deviceInfoService = {
   async getDeviceInfoById(id: string): Promise<DeviceInfo> {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/${id}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
     });
     if (!response.ok) throw new Error('Failed to fetch device info');
     const data = await response.json();
@@ -79,6 +79,7 @@ export const deviceInfoService = {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
+        ...NGROK_SKIP_HEADER
       },
       body: JSON.stringify(deviceInfoToSend),
     });
@@ -113,7 +114,7 @@ export const deviceInfoService = {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/${id}`, {
       method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}`, ...NGROK_SKIP_HEADER },
     });
     if (!response.ok) {
       let message = 'Failed to delete device info';
@@ -131,7 +132,7 @@ export const deviceInfoService = {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/delete-all`, {
       method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
     });
     if (!response.ok) {
       let message = 'Failed to delete all device infos';
@@ -148,7 +149,7 @@ export const deviceInfoService = {
   async getDistinctBrands(): Promise<string[]> {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/brands`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
     });
     if (!response.ok) throw new Error('Failed to fetch distinct brands');
     const data = await response.json();
@@ -178,7 +179,7 @@ export const deviceInfoService = {
     formData.append('file', file);
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/import`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
       body: formData,
     });
     if (!response.ok) {
@@ -199,7 +200,7 @@ export const deviceInfoService = {
     }
 
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/export?${params.toString()}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
     });
 
     if (!response.ok) {
