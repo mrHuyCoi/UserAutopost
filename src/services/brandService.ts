@@ -18,6 +18,7 @@ class BrandService {
       headers: {
         ...(!(options.body instanceof FormData) && { 'Content-Type': 'application/json' }),
         ...(token && { Authorization: `Bearer ${token}` }),
+        'ngrok-skip-browser-warning': 'true',
         ...options.headers,
       },
       ...options,
