@@ -2,7 +2,7 @@ import { Color } from '../types/deviceTypes';
 import { getAuthToken } from './apiService';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.161:8000';
-
+const NGROK_SKIP_HEADER = { 'ngrok-skip-browser-warning': 'true' };
 interface ColorsApiResponse {
   colors: Color[];
   pagination: {
@@ -23,7 +23,7 @@ export const colorService = {
     }
     
     const response = await fetch(`${API_BASE_URL}/api/v1/colors?${params.toString()}`, {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}`, ...NGROK_SKIP_HEADER },
     });
     if (!response.ok) throw new Error('Failed to fetch colors');
     const data = await response.json();
