@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.161:8000';
-
+const NGROK_SKIP_HEADER = { 'ngrok-skip-browser-warning': 'true' };
 
 interface ApiGetOptions extends RequestInit {
   responseType?: 'blob' | 'json';
@@ -60,7 +60,7 @@ apiClient.interceptors.response.use(
 export const getAuthHeader = (isFormData = false): HeadersInit => {
   const token = getAuthToken();
   const headers: HeadersInit = {
-    'Authorization': `Bearer ${token}`
+    'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER
   };
   if (!isFormData) {
     headers['Content-Type'] = 'application/json';
