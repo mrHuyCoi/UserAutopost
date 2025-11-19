@@ -3,7 +3,6 @@ import { DeviceStorage } from '../types/deviceTypes';
 import { getAuthToken } from './apiService';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.161:8000';
-const NGROK_SKIP_HEADER = { 'ngrok-skip-browser-warning': 'true' };
 interface DeviceStoragesResponse {
   data: DeviceStorage[];
   total: number;
@@ -17,8 +16,7 @@ export const deviceStorageService = {
     const skip = (page - 1) * limit;
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/${deviceInfoId}/storages?skip=${skip}&limit=${limit}`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        ...NGROK_SKIP_HEADER
+        'Authorization': `Bearer ${token}`
       },
     });
     if (!response.ok) {
