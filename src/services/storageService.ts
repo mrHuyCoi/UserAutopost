@@ -3,7 +3,7 @@ import { apiGet, getAuthToken } from './apiService';
 import { deviceService } from './deviceService';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.161:8000';
-
+const NGROK_SKIP_HEADER = { 'ngrok-skip-browser-warning': 'true' };
 interface StoragesResponse {
     data: DeviceStorage[];
     total: number;
@@ -18,6 +18,7 @@ export const storageService = {
     const response = await fetch(`${API_BASE_URL}/api/v1/device-storages?skip=${skip}&limit=${limit}&search=${search}`, {
         headers: {
             'Authorization': `Bearer ${token}`,
+            ...NGROK_SKIP_HEADER
         },
     });
     if (!response.ok) {
@@ -61,7 +62,7 @@ export const storageService = {
             const token = getAuthToken();
             const response = await fetch(`${API_BASE_URL}/api/v1/device-storages/all`, {
                 headers: {
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER
                 },
             });
             const result = await response.json();
@@ -80,6 +81,7 @@ export const storageService = {
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
+            ...NGROK_SKIP_HEADER
         },
         body: JSON.stringify({ device_info_id: deviceInfoId, capacity }),
     });
