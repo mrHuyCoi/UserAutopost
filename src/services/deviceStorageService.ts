@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { DeviceStorage } from '../types/deviceTypes';
 import { getAuthToken } from './apiService';
-
+const NGROK_SKIP_HEADER = { 'ngrok-skip-browser-warning': 'true' };
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.161:8000';
 interface DeviceStoragesResponse {
   data: DeviceStorage[];
@@ -16,7 +16,8 @@ export const deviceStorageService = {
     const skip = (page - 1) * limit;
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/${deviceInfoId}/storages?skip=${skip}&limit=${limit}`, {
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
+        ...NGROK_SKIP_HEADER
       },
     });
     if (!response.ok) {
@@ -39,7 +40,7 @@ export const deviceStorageService = {
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            ...NGROK_SKIP_HEADER...NGROK_SKIP_HEADER
+            ...NGROK_SKIP_HEADER
           },
         }
       );
