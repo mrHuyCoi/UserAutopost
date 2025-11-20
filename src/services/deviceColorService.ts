@@ -2,7 +2,7 @@ import { Color } from '../types/deviceTypes';
 import { getAuthToken } from './apiService';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.161:8000';
-
+const NGROK_SKIP_HEADER = { 'ngrok-skip-browser-warning': 'true' };
 interface DeviceColorsResponse {
   data: Color[];
   total: number;
@@ -50,7 +50,7 @@ export const deviceColorService = {
     
     const response = await fetch(`${API_BASE_URL}/api/v1/device-colors?${params.toString()}`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER
       },
     });
     if (!response.ok) {
@@ -76,7 +76,7 @@ export const deviceColorService = {
     const skip = (page - 1) * limit;
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/${deviceInfoId}/colors?skip=${skip}&limit=${limit}`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER
       },
     });
     if (!response.ok) {
