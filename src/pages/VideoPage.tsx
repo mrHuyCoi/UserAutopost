@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { useApiKeys } from "../hooks/useApiKeys";
-import { getApiBaseUrl, useVideoProgress } from "../components/VideoCreation/VideoCreationShared";
+import { getApiBaseUrl, getVideoApiBaseUrl, useVideoProgress, VideoProgressDisplay } from "../components/VideoCreation/VideoCreationShared";
 import { getAuthToken } from "../services/apiService";
 import VideoPostModal, { SelectedAccount, PostContent } from "../components/VideoPostModal";
 
@@ -89,17 +89,12 @@ const TABS = [
   { id: "audio", label: "Âm thanh", icon: Volume2 },
 ];
 
-const VOICE_OPTIONS = [
-  { id: "female", name: "Giọng nữ miền Bắc" },
-  { id: "male", name: "Giọng nam miền Bắc" },
-  { id: "female-south", name: "Giọng nữ miền Nam" },
-];
 
 // Components
 const Tab: React.FC<{
   active: boolean;
   onClick: () => void;
-  icon: any;
+  icon: React.ComponentType<{ size?: number | string; className?: string }>;
   label: string;
 }> = ({ active, onClick, icon: Icon, label }) => (
   <button
@@ -140,33 +135,9 @@ const VideoItem: React.FC<{
   </div>
 );
 
-const VoiceOption: React.FC<{
-  id: string;
-  name: string;
-  checked: boolean;
-  onChange: () => void;
-}> = ({ id, name, checked, onChange }) => (
-  <label
-    className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-all duration-200 text-sm ${
-      checked
-        ? "border-blue-600 bg-blue-50"
-        : "border-gray-300 hover:border-blue-400"
-    }`}
-  >
-    <input
-      type="radio"
-      name="voice"
-      id={id}
-      checked={checked}
-      onChange={onChange}
-      className="w-4 h-4 text-blue-600"
-    />
-    <span className="font-medium text-gray-900">{name}</span>
-  </label>
-);
 
 const PostModeOption: React.FC<{
-  icon: any;
+  icon: React.ComponentType<{ size?: number | string; className?: string }>;
   label: string;
   selected: boolean;
   onClick: () => void;
@@ -300,58 +271,6 @@ const VideoModal: React.FC<{
   );
 };
 
-const InputField: React.FC<{
-  icon: any;
-  label: string;
-  type?: string;
-  placeholder?: string;
-  defaultValue?: string | number;
-  min?: number;
-  max?: number;
-}> = ({
-  icon: Icon,
-  label,
-  type = "text",
-  placeholder,
-  defaultValue,
-  min,
-  max,
-}) => (
-  <div>
-    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-      <Icon size={14} className="flex-shrink-0" />
-      {label}
-    </label>
-    <input
-      type={type}
-      defaultValue={defaultValue}
-      min={min}
-      max={max}
-      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-      placeholder={placeholder}
-    />
-  </div>
-);
-
-const SelectField: React.FC<{
-  icon: any;
-  label: string;
-  options: string[];
-}> = ({ icon: Icon, label, options }) => (
-  <div>
-    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-      <Icon size={14} className="flex-shrink-0" />
-      {label}
-    </label>
-    <select className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
-      {options.map((option) => (
-        <option key={option} value={option}>
-          {option}
-        </option>
-      ))}
-    </select>
-  </div>
-);
 
 const MobileTabSelect: React.FC<{
   activeTab: string;
@@ -397,6 +316,29 @@ const TabContent: React.FC<{
   setScriptLanguage: (v: string) => void;
   isGeneratingScript: boolean;
   onGenerateScript: () => void;
+  // Video tab props
+  videoSource: string;
+  setVideoSource: (v: string) => void;
+  aspectRatio: string;
+  setAspectRatio: (v: string) => void;
+  maxSegmentDuration: number;
+  setMaxSegmentDuration: (v: number) => void;
+  concurrentVideos: number;
+  setConcurrentVideos: (v: number) => void;
+  // Audio tab props
+  ttsServer: string;
+  setTtsServer: (v: string) => void;
+  voiceVolume: number;
+  setVoiceVolume: (v: number) => void;
+  backgroundMusic: string;
+  setBackgroundMusic: (v: string) => void;
+  // Subtitle tab props
+  enableSubtitles: boolean;
+  setEnableSubtitles: (v: boolean) => void;
+  subtitlePosition: string;
+  setSubtitlePosition: (v: string) => void;
+  subtitleFont: string;
+  setSubtitleFont: (v: string) => void;
 }> = ({
   activeTab,
   subtitleSize,
@@ -417,6 +359,26 @@ const TabContent: React.FC<{
   setScriptLanguage,
   isGeneratingScript,
   onGenerateScript,
+  videoSource,
+  setVideoSource,
+  aspectRatio,
+  setAspectRatio,
+  maxSegmentDuration,
+  setMaxSegmentDuration,
+  concurrentVideos,
+  setConcurrentVideos,
+  ttsServer,
+  setTtsServer,
+  voiceVolume,
+  setVoiceVolume,
+  backgroundMusic,
+  setBackgroundMusic,
+  enableSubtitles,
+  setEnableSubtitles,
+  subtitlePosition,
+  setSubtitlePosition,
+  subtitleFont,
+  setSubtitleFont,
 }) => {
   // Tab Kịch bản
   if (activeTab === "script")
@@ -519,46 +481,72 @@ const TabContent: React.FC<{
   if (activeTab === "video")
     return (
       <div className="space-y-4">
-        <SelectField
-          icon={Image}
-          label="Nguồn Video"
-          options={[
-            "Thư viện stock",
-            "Tải lên",
-            "URL video",
-            "Camera trực tiếp",
-          ]}
-        />
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+            <Image size={14} className="flex-shrink-0" />
+            Nguồn Video
+          </label>
+          <select
+            value={videoSource}
+            onChange={(e) => setVideoSource(e.target.value)}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          >
+            <option value="pexels">Pexels</option>
+            <option value="pixabay">Pixabay</option>
+          </select>
+        </div>
 
-        <SelectField
-          icon={Layers}
-          label="Tỷ Lệ Khung Hình Video"
-          options={[
-            "16:9 (Landscape)",
-            "9:16 (Dọc)",
-            "1:1 (Vuông)",
-            "4:5 (Facebook)",
-            "21:9 (Cinema)",
-          ]}
-        />
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+            <Layers size={14} className="flex-shrink-0" />
+            Tỷ Lệ Khung Hình Video
+          </label>
+          <select
+            value={aspectRatio}
+            onChange={(e) => setAspectRatio(e.target.value)}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          >
+            <option value="Dọc 9:16">Dọc 9:16</option>
+            <option value="Ngang 16:9">Ngang 16:9</option>
+            <option value="Vuông 1:1">Vuông 1:1</option>
+          </select>
+        </div>
 
-        <InputField
-          icon={Clock}
-          label="Thời Lượng Tối Đa (giây)"
-          type="number"
-          defaultValue="60"
-          min={10}
-          max={300}
-        />
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+            <Clock size={14} className="flex-shrink-0" />
+            Thời Lượng Tối Đa Của Đoạn Video (giây)
+          </label>
+          <select
+            value={maxSegmentDuration}
+            onChange={(e) => setMaxSegmentDuration(Number(e.target.value))}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          >
+            {[...Array(9)].map((_, i) => (
+              <option key={i + 2} value={i + 2}>
+                {i + 2}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <InputField
-          icon={Film}
-          label="Số Video Được Tạo Ra Đồng Thời"
-          type="number"
-          defaultValue="1"
-          min={1}
-          max={5}
-        />
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+            <Film size={14} className="flex-shrink-0" />
+            Số Video Được Tạo Ra Đồng Thời
+          </label>
+          <select
+            value={concurrentVideos}
+            onChange={(e) => setConcurrentVideos(Number(e.target.value))}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          >
+            {[...Array(5)].map((_, i) => (
+              <option key={i + 1} value={i + 1}>
+                {i + 1}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div>
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
@@ -593,36 +581,50 @@ const TabContent: React.FC<{
         <label className="flex items-center gap-3 text-sm">
           <input
             type="checkbox"
-            defaultChecked
+            checked={enableSubtitles}
+            onChange={(e) => setEnableSubtitles(e.target.checked)}
             className="w-4 h-4 text-blue-600 rounded"
           />
           <span className="font-medium text-gray-900">Bật phụ đề</span>
         </label>
 
-        <SelectField
-          icon={Type}
-          label="Phông Chữ Phụ Đề"
-          options={[
-            "Arial",
-            "Roboto",
-            "Open Sans",
-            "Montserrat",
-            "Times New Roman",
-            "Helvetica",
-          ]}
-        />
+        {enableSubtitles && (
+          <>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                <Type size={14} className="flex-shrink-0" />
+                Phông Chữ Phụ Đề
+              </label>
+              <select
+                value={subtitleFont}
+                onChange={(e) => setSubtitleFont(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="DancingScript.ttf">Dancing Script</option>
+                <option value="UTM Kabel KT.ttf">UTM Kabel KT</option>
+                <option value="Charm.ttf">Charm</option>
+                <option value="Bangers.ttf">Bangers</option>
+                <option value="Charm-Bold.ttf">Charm Bold</option>
+              </select>
+            </div>
 
-        <SelectField
-          icon={Layers}
-          label="Vị trí phụ đề"
-          options={[
-            "Dưới cùng",
-            "Giữa màn hình",
-            "Trên cùng",
-            "Trên cùng bên trái",
-            "Trên cùng bên phải",
-          ]}
-        />
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                <Layers size={14} className="flex-shrink-0" />
+                Vị trí phụ đề
+              </label>
+              <select
+                value={subtitlePosition}
+                onChange={(e) => setSubtitlePosition(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="top">Trên</option>
+                <option value="center">Giữa</option>
+                <option value="bottom">Dưới (Recommend)</option>
+              </select>
+            </div>
+          </>
+        )}
 
         <div>
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
@@ -673,32 +675,54 @@ const TabContent: React.FC<{
   if (activeTab === "audio")
     return (
       <div className="space-y-4">
-        <SelectField
-          icon={Volume2}
-          label="Máy Chủ TTS"
-          options={[
-            "Google TTS",
-            "Amazon Polly",
-            "Microsoft Azure",
-            "OpenAI TTS",
-            "IBM Watson",
-          ]}
-        />
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+            <Volume2 size={14} className="flex-shrink-0" />
+            Máy Chủ TTS
+          </label>
+          <select
+            value={ttsServer}
+            onChange={(e) => setTtsServer(e.target.value)}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          >
+            <option value="azure_tts_v1">Azure TTS V1 (Nhanh)</option>
+            <option value="azure_tts_v2">Azure TTS V2 (Nhanh, Cần API Key)</option>
+            <option value="gemini">Gemini 2.5 Flash TTS (Nhanh, Cần API Key)</option>
+          </select>
+        </div>
 
         <div>
           <label className="text-sm font-medium text-gray-700 mb-3 block">
             Giọng Đọc Văn Bản
           </label>
-          <div className="space-y-2">
-            {VOICE_OPTIONS.map((voice) => (
-              <VoiceOption
-                key={voice.id}
-                {...voice}
-                checked={selectedVoice === voice.id}
-                onChange={() => setSelectedVoice(voice.id)}
-              />
-            ))}
-          </div>
+          <select
+            value={selectedVoice}
+            onChange={(e) => setSelectedVoice(e.target.value)}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          >
+            {ttsServer === 'azure_tts_v1' && (
+              <>
+                <option value="vi-VN-HoaiMyNeural">vi-VN-HoaiMyNeural</option>
+                <option value="vi-VN-NamMinhNeural">vi-VN-NamMinhNeural</option>
+              </>
+            )}
+            {ttsServer === 'azure_tts_v2' && (
+              <>
+                <option value="en-US-AvaMultilingualNeural-V2">en-US-AvaMultilingualNeural-V2 (Female)</option>
+                <option value="en-US-AndrewMultilingualNeural-V2">en-US-AndrewMultilingualNeural-V2 (Male)</option>
+                <option value="en-US-EmmaMultilingualNeural-V2">en-US-EmmaMultilingualNeural-V2 (Female)</option>
+                <option value="en-US-BrianMultilingualNeural-V2">en-US-BrianMultilingualNeural-V2 (Male)</option>
+              </>
+            )}
+            {ttsServer === 'gemini' && (
+              <>
+                <option value="Puck">Puck - Nam</option>
+                <option value="Charon">Charon - Nam</option>
+                <option value="Zephyr">Zephyr - Nữ</option>
+                <option value="Kore">Kore - Nữ</option>
+              </>
+            )}
+          </select>
         </div>
 
         <Slider
@@ -712,26 +736,27 @@ const TabContent: React.FC<{
 
         <Slider
           label="Âm Lượng Giọng Đọc"
-          value={0.8}
-          min={0.1}
-          max={1.0}
+          value={voiceVolume}
+          min={0.6}
+          max={5.0}
           step={0.1}
-          onChange={() => {}}
+          onChange={setVoiceVolume}
         />
 
-        <SelectField
-          icon={Volume2}
-          label="Âm Nhạc Nền"
-          options={[
-            "Không có nhạc nền",
-            "Nhạc vui tươi",
-            "Nhạc corporate",
-            "Nhạc điện ảnh",
-            "Nhạc nhẹ nhàng",
-            "Nhạc hiphop",
-            "Nhạc cổ điển",
-          ]}
-        />
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+            <Volume2 size={14} className="flex-shrink-0" />
+            Âm Nhạc Nền
+          </label>
+          <select
+            value={backgroundMusic}
+            onChange={(e) => setBackgroundMusic(e.target.value)}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+          >
+            <option value="Ngẫu nhiên">Ngẫu nhiên</option>
+            <option value="Không có">Không có</option>
+          </select>
+        </div>
 
         <Slider
           label="Âm Lượng Nhạc Nền"
@@ -773,15 +798,31 @@ const TabContent: React.FC<{
 
 const SingleVoiceMode: React.FC = () => {
   const { savedApiKeys } = useApiKeys();
-  const { completedVideos } = useVideoProgress(); // Get completed videos from AI
+  const { completedVideos, videoProgress, startVideoCreation, stopVideoCreation } = useVideoProgress();
   const [activeTab, setActiveTab] = useState("script");
   const [selectedVideo, setSelectedVideo] = useState(1);
   const [showModal, setShowModal] = useState(false);
-  const [selectedVoice, setSelectedVoice] = useState("female");
+  const [selectedVoice, setSelectedVoice] = useState("vi-VN-HoaiMyNeural");
   const [postMode, setPostMode] = useState("save");
-  const [subtitleSize, setSubtitleSize] = useState(80);
+  const [subtitleSize, setSubtitleSize] = useState(60);
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
-  const [musicVolume, setMusicVolume] = useState(0.5);
+  const [musicVolume, setMusicVolume] = useState(0.2);
+  
+  // Video settings
+  const [videoSource, setVideoSource] = useState("Pexels");
+  const [aspectRatio, setAspectRatio] = useState("Dọc 9:16");
+  const [maxSegmentDuration, setMaxSegmentDuration] = useState(5);
+  const [concurrentVideos, setConcurrentVideos] = useState(1);
+  
+  // Audio settings
+  const [ttsServer, setTtsServer] = useState("azure_tts_v1");
+  const [voiceVolume, setVoiceVolume] = useState(1.0);
+  const [backgroundMusic, setBackgroundMusic] = useState("Ngẫu nhiên");
+  
+  // Subtitle settings
+  const [enableSubtitles, setEnableSubtitles] = useState(true);
+  const [subtitlePosition, setSubtitlePosition] = useState("bottom");
+  const [subtitleFont, setSubtitleFont] = useState("Charm-Bold.ttf");
 
   // Script state
   const [videoTopic, setVideoTopic] = useState(
@@ -796,7 +837,7 @@ const SingleVoiceMode: React.FC = () => {
   const [scriptLanguage, setScriptLanguage] = useState(
     () => sessionStorage.getItem("scriptLanguage") || "Tiếng Việt"
   );
-  const [selectedAiProvider, setSelectedAiProvider] = useState(() => {
+  const [selectedAiProvider] = useState(() => {
     if (savedApiKeys.gemini_api_key) return "gemini";
     if (savedApiKeys.openai_api_key) return "openai";
     return "gemini";
@@ -820,6 +861,24 @@ const SingleVoiceMode: React.FC = () => {
 
   const geminiApiKey = savedApiKeys.gemini_api_key;
   const openaiApiKey = savedApiKeys.openai_api_key;
+
+  // Update voice when TTS server changes
+  useEffect(() => {
+    if (ttsServer === 'azure_tts_v1') {
+      if (!selectedVoice.startsWith('vi-VN-')) {
+        setSelectedVoice('vi-VN-HoaiMyNeural');
+      }
+    } else if (ttsServer === 'azure_tts_v2') {
+      if (!selectedVoice.includes('MultilingualNeural-V2')) {
+        setSelectedVoice('en-US-AvaMultilingualNeural-V2');
+      }
+    } else if (ttsServer === 'gemini') {
+      if (!['Puck', 'Charon', 'Zephyr', 'Kore'].includes(selectedVoice)) {
+        setSelectedVoice('Puck');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ttsServer]);
 
   const handleGenerateScriptAndKeywords = async () => {
     if (!videoTopic.trim()) {
@@ -873,7 +932,8 @@ const SingleVoiceMode: React.FC = () => {
         setVideoScript(generatedScript);
 
         // Generate keywords
-        const keywordsResponse = await fetch(`${apiBaseUrl}/api/v1/terms`, {
+        const videoApiBaseUrl = getVideoApiBaseUrl();
+        const keywordsResponse = await fetch(`${videoApiBaseUrl}/api/v1/terms`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -992,14 +1052,125 @@ const SingleVoiceMode: React.FC = () => {
     }
   };
 
+  // Handle create video
+  const handleCreateVideo = async () => {
+    if (!videoTopic.trim() || !videoScript.trim() || !videoKeywords.trim()) {
+      alert('Vui lòng điền đầy đủ thông tin');
+      return;
+    }
+
+    try {
+      const videoApiBaseUrl = getVideoApiBaseUrl();
+      
+      // Map UI values to API values
+      const aspectRatioMap: { [key: string]: string } = {
+        'Dọc 9:16': '9:16',
+        'Ngang 16:9': '16:9',
+        'Vuông 1:1': '1:1'
+      };
+
+      const positionMap: { [key: string]: string } = {
+        'top': 'top',
+        'center': 'center',
+        'bottom': 'bottom',
+        'custom': 'custom'
+      };
+
+      const bgmTypeMap: { [key: string]: string } = {
+        'Ngẫu nhiên': 'random',
+        'Không có': 'none'
+      };
+
+      const ttsServerMap: { [key: string]: string } = {
+        'azure_tts_v1': 'azure-tts-v1',
+        'azure_tts_v2': 'azure-tts-v2',
+        'gemini': 'gemini'
+      };
+
+      const normalizedAspectRatio = aspectRatioMap[aspectRatio] || '9:16';
+      const normalizedVideoSource = videoSource.trim().toLowerCase() || 'pexels';
+      const normalizedSubtitlePosition = positionMap[subtitlePosition] || 'bottom';
+      const normalizedBgmType = bgmTypeMap[backgroundMusic] || 'random';
+      const normalizedTtsServer = ttsServerMap[ttsServer] || ttsServer;
+
+      const requestBody = {
+        video_subject: videoTopic,
+        video_script: videoScript,
+        video_terms: videoKeywords,
+        video_aspect: normalizedAspectRatio,
+        video_concat_mode: 'random',
+        video_transition_mode: 'None',
+        video_clip_duration: maxSegmentDuration,
+        video_count: concurrentVideos,
+        video_source: normalizedVideoSource,
+        video_materials: [{
+          provider: normalizedVideoSource,
+          url: "",
+          duration: 0
+        }],
+        video_language: scriptLanguage === 'Tiếng Việt' ? 'Vietnamese' : 'English',
+        voice_name: selectedVoice,
+        voice_volume: voiceVolume,
+        tts_server: normalizedTtsServer,
+        voice_rate: voiceSpeed,
+        bgm_type: normalizedBgmType,
+        bgm_file: "",
+        bgm_volume: musicVolume,
+        subtitle_enabled: enableSubtitles,
+        type_subtitle: 'normal',
+        subtitle_provider: 'edge',
+        subtitle_position: normalizedSubtitlePosition,
+        custom_position: 70,
+        font_name: subtitleFont,
+        text_fore_color: '#FFFFFF',
+        text_background_color: true,
+        font_size: subtitleSize,
+        stroke_color: '#000000',
+        stroke_width: 1.5,
+        n_threads: 4,
+        paragraph_number: 1,
+        gemini_key: geminiApiKey || '',
+        openai_key: openaiApiKey || '',
+        speech_key: '',
+        speech_region: ''
+      };
+
+      const response = await fetch(`${videoApiBaseUrl}/api/v1/videos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const taskId = data.data.task_id;
+        startVideoCreation(taskId);
+        if (postMode === "post") {
+          // Show post modal after video creation starts
+          setShowPostModal(true);
+        } else {
+          alert('Đã bắt đầu tạo video! Vui lòng đợi video được tạo xong.');
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        alert(errorData.message || 'Lỗi khi tạo video');
+      }
+    } catch (error) {
+      console.error('Error creating video:', error);
+      alert('Lỗi kết nối khi tạo video');
+    }
+  };
+
   // Handle open post modal when postMode is "post"
   const handleCreateVideoClick = () => {
     if (postMode === "post") {
-      // Show post modal directly
-      setShowPostModal(true);
+      // Create video first, then show post modal
+      handleCreateVideo();
     } else {
-      // Original create video logic (if any)
-      alert("Chức năng tạo video đang được phát triển. Vui lòng chọn 'Đăng bài ngay' để đăng video có sẵn.");
+      // Create video and save
+      handleCreateVideo();
     }
   };
 
@@ -1046,6 +1217,26 @@ const SingleVoiceMode: React.FC = () => {
             setScriptLanguage={setScriptLanguage}
             isGeneratingScript={isGeneratingScript}
             onGenerateScript={handleGenerateScriptAndKeywords}
+            videoSource={videoSource}
+            setVideoSource={setVideoSource}
+            aspectRatio={aspectRatio}
+            setAspectRatio={setAspectRatio}
+            maxSegmentDuration={maxSegmentDuration}
+            setMaxSegmentDuration={setMaxSegmentDuration}
+            concurrentVideos={concurrentVideos}
+            setConcurrentVideos={setConcurrentVideos}
+            ttsServer={ttsServer}
+            setTtsServer={setTtsServer}
+            voiceVolume={voiceVolume}
+            setVoiceVolume={setVoiceVolume}
+            backgroundMusic={backgroundMusic}
+            setBackgroundMusic={setBackgroundMusic}
+            enableSubtitles={enableSubtitles}
+            setEnableSubtitles={setEnableSubtitles}
+            subtitlePosition={subtitlePosition}
+            setSubtitlePosition={setSubtitlePosition}
+            subtitleFont={subtitleFont}
+            setSubtitleFont={setSubtitleFont}
           />
 
           <div className="mt-6 lg:mt-8 pt-4 lg:pt-6 border-t border-gray-200">
@@ -1074,10 +1265,29 @@ const SingleVoiceMode: React.FC = () => {
             </button>
             <button 
               onClick={handleCreateVideoClick}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md text-sm"
+              disabled={videoProgress.isCreating}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md text-sm ${
+                videoProgress.isCreating ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
-              <Play size={16} /> {postMode === "post" ? "Đăng Bài Ngay" : "Tạo Video"}
+              {videoProgress.isCreating ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Đang tạo...
+                </>
+              ) : (
+                <>
+                  <Play size={16} /> {postMode === "post" ? "Đăng Bài Ngay" : "Tạo Video"}
+                </>
+              )}
             </button>
+          </div>
+          
+          {/* Video Progress Display */}
+          <div className="mt-6">
+            <VideoProgressDisplay 
+              progress={videoProgress} 
+              onStop={stopVideoCreation}
+            />
           </div>
         </div>
 
