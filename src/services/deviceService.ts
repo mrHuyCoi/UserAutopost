@@ -20,6 +20,7 @@ export const deviceService = {
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos?skip=${skip}&limit=${limit}&search=${search}`, {
         headers: {
             'Authorization': `Bearer ${token}`,
+            'ngrok-skip-browser-warning': 'true'
         },
     });
     if (!response.ok) {
@@ -40,6 +41,7 @@ export const deviceService = {
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos?limit=100`, { 
         headers: {
             'Authorization': `Bearer ${token}`,
+            'ngrok-skip-browser-warning': 'true'
         },
     });
     if (!response.ok) {
@@ -54,6 +56,7 @@ export const deviceService = {
     const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/${deviceId}`, {
         headers: {
             'Authorization': `Bearer ${token}`,
+            'ngrok-skip-browser-warning': 'true'
         },
     });
     if (!response.ok) {
