@@ -96,7 +96,7 @@ export const apiGet = async <T>(endpoint: string, options: ApiGetOptions = {}): 
         return await response.blob() as T;
     }
 
-    return await response.data;
+    return await response.json();
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
