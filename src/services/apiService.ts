@@ -224,7 +224,7 @@ export const apiPostFormData = async <T>(endpoint: string, formData: FormData): 
   const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
     method: 'POST',
     // headers,
-    headers: getAuthHeader(true)
+    headers: getAuthHeader(true),
     body: formData
   });
 
