@@ -11,7 +11,7 @@ import type { ImportResponse } from "../types/deviceTypes";
 
 const PUBLIC_URL =
   import.meta.env.VITE_API_BASE_URL || "http://192.168.1.161:8000";
-
+const NGROK_SKIP_HEADER = { 'ngrok-skip-browser-warning': 'true' };
 class DeviceApiService {
   private isValidUUID(uuid: string): boolean {
     const uuidRegex =
@@ -25,7 +25,7 @@ class DeviceApiService {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
-        ...options.headers,
+        ...options.headers,...NGROK_SKIP_HEADER
       },
       ...options,
     };
