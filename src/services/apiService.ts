@@ -74,7 +74,12 @@ export const apiGet = async <T>(endpoint: string, options: ApiGetOptions = {}): 
 
     const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
         ...options,
-        headers: getAuthHeader()
+        // headers: getAuthHeader()
+        headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'ngrok-skip-browser-warning': 'true'
+    },
     });
 
     if (!response.ok) {
