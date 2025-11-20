@@ -65,6 +65,7 @@ const api = {
   get: async <T,>(url: string, token?: string | null): Promise<{ data: T }> => {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true'
     };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
