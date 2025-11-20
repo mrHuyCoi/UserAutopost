@@ -67,38 +67,42 @@ export const getAuthHeader = (isFormData = false): HeadersInit => {
   }
   return headers;
 };
-
-
-export const apiGet = async <T>(endpoint: string, options: ApiGetOptions = {}): Promise<T> => {
-    const token = getAuthToken();
-    if (!token) throw new Error('Unauthorized');
-
-    const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
-        ...options,
-        headers: getAuthHeader()
-    });
-
-    if (!response.ok) {
-        // Handle 401 Unauthorized - token expired
-        if (response.status === 401) {
-            handleTokenExpiry();
-            throw new Error('Token đã hết hạn. Vui lòng đăng nhập lại.');
-        }
-        
-        // Handle non-JSON responses for blob errors
-        if (options.responseType === 'blob') {
-            throw new Error(`Error: ${response.status}`);
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Error: ${response.status}`);
-    }
-    
-    if (options.responseType === 'blob') {
-        return await response.blob() as T;
-    }
-
-    return await response.json();
+export const apiGet = async <T>(endpoint: string, params?: Record<string, any>): Promise<T> => {
+    // Axios đã xử lý token, ngrok header, và baseURL
+    const response = await apiClient.get(endpoint, { params }); 
+    return response.data; // Axios trả về response.data
 };
+
+// export const apiGet = async <T>(endpoint: string, options: ApiGetOptions = {}): Promise<T> => {
+//     const token = getAuthToken();
+//     if (!token) throw new Error('Unauthorized');
+
+//     const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
+//         ...options,
+//         headers: getAuthHeader()
+//     });
+
+//     if (!response.ok) {
+//         // Handle 401 Unauthorized - token expired
+//         if (response.status === 401) {
+//             handleTokenExpiry();
+//             throw new Error('Token đã hết hạn. Vui lòng đăng nhập lại.');
+//         }
+        
+//         // Handle non-JSON responses for blob errors
+//         if (options.responseType === 'blob') {
+//             throw new Error(`Error: ${response.status}`);
+//         }
+//         const errorData = await response.json();
+//         throw new Error(errorData.detail || `Error: ${response.status}`);
+//     }
+    
+//     if (options.responseType === 'blob') {
+//         return await response.blob() as T;
+//     }
+
+//     return await response.json();
+// };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const apiPost = async <T>(endpoint: string, data: any): Promise<T> => {
