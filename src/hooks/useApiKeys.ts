@@ -28,7 +28,8 @@ export const useApiKeys = () => {
         method: 'GET',
         headers: {
           'accept': 'application/json',
-          'Authorization': `Bearer ${user.token}`
+          'Authorization': `Bearer ${user.token}`,
+          'ngrok-skip-browser-warning': 'true'
         }
       });
 
