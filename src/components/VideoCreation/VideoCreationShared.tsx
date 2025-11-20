@@ -112,7 +112,7 @@ class VideoProgressManager {
     if (!this.currentProgress.taskId) return;
 
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_VIDEO_URL;
+      const apiBaseUrl = getVideoApiBaseUrl();
       const response = await fetch(
         `${apiBaseUrl}/api/v1/tasks/${this.currentProgress.taskId}`,
         {
@@ -151,7 +151,7 @@ class VideoProgressManager {
 
   private async downloadCompletedVideos(taskData: any) {
     try {
-      const apiBaseUrl = import.meta.env.VITE_API_VIDEO_URL;
+      const apiBaseUrl = getVideoApiBaseUrl();
       const videoSources: any[] =
         taskData.videos || taskData.combined_videos || [];
       const taskId = this.currentProgress.taskId;
@@ -272,6 +272,12 @@ class VideoProgressManager {
 // Shared API base URL function
 export const getApiBaseUrl = () => {
   return import.meta.env.VITE_API_BASE_URL || "http://192.168.1.161:8000";
+};
+
+export const getVideoApiBaseUrl = () => {
+  return (
+    import.meta.env.VITE_API_VIDEO_URL || "https://autovideo1.quandoiai.vn"
+  );
 };
 
 // Hook to use the global video progress manager
