@@ -217,13 +217,14 @@ export const apiPostFormData = async <T>(endpoint: string, formData: FormData): 
   const token = getAuthToken();
   if (!token) throw new Error('Unauthorized');
 
-  const headers: HeadersInit = {
-    'Authorization': `Bearer ${token}`,
-  };
+  // const headers: HeadersInit = {
+  //   'Authorization': `Bearer ${token}`,
+  // };
 
   const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
     method: 'POST',
-    headers,
+    // headers,
+    headers: getAuthHeader(true)
     body: formData
   });
 
@@ -250,9 +251,10 @@ export const apiGetBlob = async (endpoint: string): Promise<Blob> => {
   console.log('🌐 Full URL:', `${API_BASE_URL}/api/v1${endpoint}`);
 
   const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    }
+    // headers: {
+    //   'Authorization': `Bearer ${token}`,
+    // }
+    headers: getAuthHeader()
   });
 
   console.log('📥 Response Status:', response.status);
