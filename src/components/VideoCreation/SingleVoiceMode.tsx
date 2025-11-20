@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Video, Volume2, Type, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useVideoProgress, VideoProgressDisplay, VideoGallery, ColorPicker, ExpandableTextarea, getApiBaseUrl } from './VideoCreationShared';
+import { useVideoProgress, VideoProgressDisplay, VideoGallery, ColorPicker, ExpandableTextarea, getApiBaseUrl, getVideoApiBaseUrl } from './VideoCreationShared';
 import { useApiKeys } from '../../hooks/useApiKeys';
 import { usePersistentState } from '../../hooks/useFormPersistence';
 export const SingleVoiceMode: React.FC = () => {
@@ -205,8 +205,8 @@ export const SingleVoiceMode: React.FC = () => {
     setIsGeneratingKeywords(true);
 
     try {
-      const apiBaseUrl = getApiBaseUrl();
-      const response = await fetch(`${apiBaseUrl}/api/v1/terms`, {
+      const videoApiBaseUrl = getVideoApiBaseUrl();
+      const response = await fetch(`${videoApiBaseUrl}/api/v1/terms`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -243,7 +243,7 @@ export const SingleVoiceMode: React.FC = () => {
     }
 
     try {
-      const apiBaseUrl = getApiBaseUrl();
+      const videoApiBaseUrl = getVideoApiBaseUrl();
       
       // Map UI values to API values
       const aspectRatioMap: { [key: string]: string } = {
@@ -273,34 +273,55 @@ export const SingleVoiceMode: React.FC = () => {
         'custom': 'custom'
       };
 
+      const bgmTypeMap: { [key: string]: string } = {
+        'Ngẫu nhiên': 'random',
+        'Không có': 'none'
+      };
+
+      const ttsServerMap: { [key: string]: string } = {
+        'azure_tts_v1': 'azure-tts-v1',
+        'azure_tts_v2': 'azure-tts-v2',
+        'gemini': 'gemini'
+      };
+
+      const normalizedAspectRatio = aspectRatioMap[aspectRatio] || '9:16';
+      const normalizedConcatMode = concatModeMap[concatenationMode] || 'random';
+      const normalizedTransitionMode = transitionMap[transitionMode] || 'None';
+      const normalizedVideoSource = videoSource.trim().toLowerCase() || 'pexels';
+      const normalizedSubtitlePosition = positionMap[subtitlePosition] || 'bottom';
+      const normalizedBgmType = bgmTypeMap[backgroundMusic] || 'random';
+      const normalizedTtsServer = ttsServerMap[ttsServer] || ttsServer;
+      const parsedCustomPosition = parseFloat(customSubtitlePosition);
+      const customPosition = Number.isFinite(parsedCustomPosition) ? parsedCustomPosition : 70;
+
       const requestBody = {
         video_subject: videoTopic,
         video_script: videoScript,
         video_terms: videoKeywords,
-        video_aspect: aspectRatioMap[aspectRatio] || '9:16',
-        video_concat_mode: concatModeMap[concatenationMode] || 'random',
-        video_transition_mode: transitionMap[transitionMode],
+        video_aspect: normalizedAspectRatio,
+        video_concat_mode: normalizedConcatMode,
+        video_transition_mode: normalizedTransitionMode,
         video_clip_duration: maxSegmentDuration,
         video_count: concurrentVideos,
-        video_source: videoSource.toLowerCase(),
+        video_source: normalizedVideoSource,
         video_materials: [{
-          provider: videoSource.toLowerCase(),
+          provider: normalizedVideoSource,
           url: "",
           duration: 0
         }],
         video_language: scriptLanguage === 'Tiếng Việt' ? 'Vietnamese' : 'English',
         voice_name: ttsVoice,
         voice_volume: voiceVolume,
-        tts_server: ttsServer,
+        tts_server: normalizedTtsServer,
         voice_rate: voiceSpeed,
-        bgm_type: backgroundMusic === 'Ngẫu nhiên' ? 'random' : backgroundMusic.toLowerCase(),
+        bgm_type: normalizedBgmType,
         bgm_file: "",
         bgm_volume: backgroundMusicVolume,
         subtitle_enabled: enableSubtitles,
         type_subtitle: subtitleType,
         subtitle_provider: subtitleProvider,
-        subtitle_position: positionMap[subtitlePosition],
-        custom_position: parseFloat(customSubtitlePosition),
+        subtitle_position: normalizedSubtitlePosition,
+        custom_position: customPosition,
         font_name: subtitleFont,
         text_fore_color: subtitleTextColor,
         text_background_color: true,
@@ -309,13 +330,13 @@ export const SingleVoiceMode: React.FC = () => {
         stroke_width: subtitleBorderWidth,
         n_threads: 6,
         paragraph_number: 1,
-        gemini_key: geminiApiKey,
-        openai_key: openaiApiKey,
-        speech_key: azureApiKey,
-        speech_region: azureRegion
+        gemini_key: geminiApiKey || '',
+        openai_key: openaiApiKey || '',
+        speech_key: azureApiKey || '',
+        speech_region: azureRegion || ''
       };
 
-      const response = await fetch(`${apiBaseUrl}/api/v1/videos`, {
+      const response = await fetch(`${videoApiBaseUrl}/api/v1/videos`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
