@@ -6,13 +6,17 @@ interface ConversationListProps {
   activeConversation: string;
   onConversationSelect: (conversationId: string) => void;
   showChannelFilter?: boolean;
+  channelFilter?: 'all' | 'zalo' | 'zalo-oa' | 'messenger';
+  onChannelFilterChange?: (filter: 'all' | 'zalo' | 'zalo-oa' | 'messenger') => void;
 }
 
 export const ConversationList: React.FC<ConversationListProps> = ({
   conversations,
   activeConversation,
   onConversationSelect,
-  showChannelFilter = true
+  showChannelFilter = true,
+  channelFilter = 'all',
+  onChannelFilterChange
 }) => {
   return (
     <div className="xl:col-span-1">
@@ -20,7 +24,11 @@ export const ConversationList: React.FC<ConversationListProps> = ({
         {showChannelFilter && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Lọc theo kênh</label>
-            <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+            <select 
+              value={channelFilter}
+              onChange={(e) => onChannelFilterChange?.(e.target.value as 'all' | 'zalo' | 'zalo-oa' | 'messenger')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
               <option value="all">Tất cả kênh</option>
               <option value="zalo">Zalo</option>
               <option value="zalo-oa">Zalo OA</option>
