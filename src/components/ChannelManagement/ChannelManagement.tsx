@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, RefreshCw, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { TabType, Conversation, Message } from './types/channel';
 import { useChannels } from './hooks/useChannels';
 import { useFAQ } from './hooks/useFAQ';
@@ -14,6 +14,9 @@ import { useZaloSessions } from './hooks/useZaloSessions';
 import { useZaloConversations } from './hooks/useZaloConversations';
 import { useZaloOAConversations } from './hooks/useZaloOAConversations';
 import { useMessengerConversations } from './hooks/useMessengerConversations';
+import ZaloOATab from '../../pages/ChatbotPage/ZaloOATab';
+import ZaloTab from '../../pages/ChatbotPage/ZaloTab';
+import FacebookConversationsTab from '../../pages/ChatbotPage/FacebookConversationsTab';
 import {
   mapZaloConversationToConversation,
   mapZaloOAConversationToConversation,
@@ -36,6 +39,17 @@ const ChannelManagement: React.FC = () => {
   } = useChannels();
   const zalo = useZaloSessions();
   const filteredChannels = channels.filter(c => c.type === activeTab);
+
+  // Auto-refresh channels when window regains focus (after OAuth login)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (['zalo', 'zalo-oa', 'messenger'].includes(activeTab)) {
+        refresh();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [activeTab, refresh]);
 
   const {
     selectedMessage,
@@ -206,22 +220,207 @@ const ChannelManagement: React.FC = () => {
     }
   };
 
+  // Load conversations from all connected channels for "Hội thoại" tab
+  const [allZaloConversations, setAllZaloConversations] = useState<Conversation[]>([]);
+  const [allZaloOAConversations, setAllZaloOAConversations] = useState<Conversation[]>([]);
+  const [allMessengerConversations, setAllMessengerConversations] = useState<Conversation[]>([]);
+  const [loadingAllConversations, setLoadingAllConversations] = useState(false);
+
+  // Load conversations from all connected channels when on conversations tab
+  useEffect(() => {
+    if (activeTab === 'conversations') {
+      const loadAllConversations = async () => {
+        setLoadingAllConversations(true);
+        try {
+          // Get all connected channels
+          const connectedZaloChannels = channels.filter(c => c.type === 'zalo' && c.status === 'connected' && c.phone);
+          const connectedOAChannels = channels.filter(c => c.type === 'zalo-oa' && c.status === 'connected');
+          const connectedMessengerChannels = channels.filter(c => c.type === 'messenger' && c.status === 'connected' && c.phone);
+
+          // Load Zalo conversations from all connected accounts
+          const zaloConvs: Conversation[] = [];
+          for (const channel of connectedZaloChannels) {
+            try {
+              const { getZaloConversations } = await import('../../services/zaloService');
+              const res = await getZaloConversations(channel.phone!);
+              const mapped = (res.items || []).map(conv => 
+                mapZaloConversationToConversation(conv, [])
+              );
+              zaloConvs.push(...mapped);
+            } catch (e) {
+              console.error(`Error loading Zalo conversations for ${channel.phone}:`, e);
+            }
+          }
+          setAllZaloConversations(zaloConvs);
+
+          // Load Zalo OA conversations from all connected accounts
+          const oaConvs: Conversation[] = [];
+          for (const channel of connectedOAChannels) {
+            try {
+              const match = channel.id.match(/^zalo-oa-(.+)$/);
+              if (match) {
+                const accountId = match[1];
+                const { listOaConversations } = await import('../../services/zaloOAService');
+                const res = await listOaConversations(accountId, { limit: 50, offset: 0 });
+                const mapped = (res.data || []).map(conv => 
+                  mapZaloOAConversationToConversation(conv, [])
+                );
+                oaConvs.push(...mapped);
+              }
+            } catch (e) {
+              console.error(`Error loading Zalo OA conversations for ${channel.id}:`, e);
+            }
+          }
+          setAllZaloOAConversations(oaConvs);
+
+          // Load Messenger conversations from all connected pages
+          const messengerConvs: Conversation[] = [];
+          for (const channel of connectedMessengerChannels) {
+            try {
+              const { getFBConversations } = await import('../../services/facebookService');
+              const res = await getFBConversations(channel.phone!, 'messenger', 50);
+              const mapped = (res.data || []).map(conv => 
+                mapFBConversationToConversation(conv, [], channel.phone!)
+              );
+              messengerConvs.push(...mapped);
+            } catch (e) {
+              console.error(`Error loading Messenger conversations for ${channel.phone}:`, e);
+            }
+          }
+          setAllMessengerConversations(messengerConvs);
+        } catch (e) {
+          console.error('Error loading all conversations:', e);
+        } finally {
+          setLoadingAllConversations(false);
+        }
+      };
+
+      loadAllConversations();
+    }
+  }, [activeTab, channels]);
+
   // All conversations for "Hội thoại" tab (merged from all channels)
   const allConversations = useMemo(() => {
-    return [
-      ...zaloConversations,
-      ...zaloOAConversations,
-      ...messengerConversations
-    ];
-  }, [zaloConversations, zaloOAConversations, messengerConversations]);
+    if (activeTab === 'conversations') {
+      // Use conversations from all connected channels
+      return [
+        ...allZaloConversations,
+        ...allZaloOAConversations,
+        ...allMessengerConversations
+      ];
+    } else {
+      // Use conversations from selected channel (for backward compatibility)
+      return [
+        ...zaloConversations,
+        ...zaloOAConversations,
+        ...messengerConversations
+      ];
+    }
+  }, [
+    activeTab,
+    allZaloConversations,
+    allZaloOAConversations,
+    allMessengerConversations,
+    zaloConversations,
+    zaloOAConversations,
+    messengerConversations
+  ]);
 
   const [activeAllConversation, setActiveAllConversation] = useState<string>('');
+  const [conversationFilter, setConversationFilter] = useState<'all' | 'zalo' | 'zalo-oa' | 'messenger'>('all');
+
+  // Filter conversations based on selected filter
+  const filteredAllConversations = useMemo(() => {
+    if (conversationFilter === 'all') {
+      return allConversations;
+    }
+    return allConversations.filter(conv => conv.channel === conversationFilter);
+  }, [allConversations, conversationFilter]);
+
+  // Reset active conversation if it's not in filtered list when filter changes
+  useEffect(() => {
+    if (activeAllConversation && !filteredAllConversations.find(c => c.id === activeAllConversation)) {
+      setActiveAllConversation('');
+    }
+  }, [conversationFilter, filteredAllConversations, activeAllConversation]);
 
   const getActiveAllConversation = () => {
-    return allConversations.find(conv => conv.id === activeAllConversation);
+    return filteredAllConversations.find(conv => conv.id === activeAllConversation);
   };
 
-  const sendMessageToAllConversation = (conversationId: string, messageText: string) => {
+  // Store messages for conversations in "all conversations" tab
+  const [allConversationMessages, setAllConversationMessages] = useState<Record<string, Message[]>>({});
+  const [loadingAllMessages, setLoadingAllMessages] = useState<string | null>(null);
+
+  // Load messages for a conversation in "all conversations" tab
+  const loadMessagesForConversation = async (conversation: Conversation) => {
+    if (allConversationMessages[conversation.id]) return; // Already loaded
+    
+    setLoadingAllMessages(conversation.id);
+    try {
+      let messages: Message[] = [];
+      
+      if (conversation.channel === 'zalo') {
+        // Find the channel for this conversation
+        const channel = channels.find(c => c.type === 'zalo' && c.status === 'connected' && c.phone);
+        if (channel?.phone) {
+          const { getZaloMessages } = await import('../../services/zaloService');
+          // Extract thread_id and peer_id from conversation
+          const threadId = conversation.id.split('-')[0] || '';
+          const peerId = conversation.id.split('-')[1] || conversation.id;
+          const res = await getZaloMessages(threadId, peerId, 50, 'asc', channel.phone);
+          const zaloMessages = res.items || [];
+          // Map Zalo messages to Message format
+          messages = zaloMessages.map(msg => ({
+            id: msg.id || `${msg.ts}`,
+            text: msg.content || '',
+            time: msg.created_at || (msg.ts ? new Date(msg.ts).toISOString() : new Date().toISOString()),
+            sender: msg.is_self ? 'bot' : 'user',
+          }));
+        }
+      } else if (conversation.channel === 'zalo-oa') {
+        // Find the OA account for this conversation
+        const channel = channels.find(c => c.type === 'zalo-oa' && c.status === 'connected');
+        if (channel) {
+          const match = channel.id.match(/^zalo-oa-(.+)$/);
+          if (match) {
+            const accountId = match[1];
+            const { listOaMessages } = await import('../../services/zaloOAService');
+            const res = await listOaMessages(accountId, conversation.id, { limit: 50, offset: 0, order: 'desc' });
+            const oaMessages = (res.data || []).reverse();
+            messages = oaMessages.map(msg => ({
+              id: msg.id,
+              text: msg.text || '',
+              time: msg.timestamp || '',
+              sender: msg.direction === 'out' ? 'bot' : 'user',
+            }));
+          }
+        }
+      } else if (conversation.channel === 'messenger') {
+        // Find the page for this conversation
+        const channel = channels.find(c => c.type === 'messenger' && c.status === 'connected' && c.phone);
+        if (channel?.phone) {
+          const { getFBConversationMessages } = await import('../../services/facebookService');
+          const res = await getFBConversationMessages(channel.phone, conversation.id, 50);
+          const fbMessages = res.messages?.data || [];
+          messages = fbMessages.map(msg => ({
+            id: msg.id || '',
+            text: msg.message || '',
+            time: msg.created_time || '',
+            sender: msg.from?.id === channel.phone ? 'bot' : 'user',
+          }));
+        }
+      }
+      
+      setAllConversationMessages(prev => ({ ...prev, [conversation.id]: messages }));
+    } catch (e) {
+      console.error('Error loading messages for conversation:', e);
+    } finally {
+      setLoadingAllMessages(null);
+    }
+  };
+
+  const sendMessageToAllConversation = async (conversationId: string, messageText: string) => {
     const conversation = allConversations.find(conv => conv.id === conversationId);
     if (!conversation) return;
 
@@ -233,6 +432,9 @@ const ChannelManagement: React.FC = () => {
     } else if (conversation.channel === 'messenger') {
       sendMessengerMessage(conversationId, messageText);
     }
+    
+    // Reload messages after sending
+    await loadMessagesForConversation(conversation);
   };
 
   const handleConnectChannel = (channelId: string) => {
@@ -402,21 +604,21 @@ const ChannelManagement: React.FC = () => {
               </p>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
-              <button
+              {/* <button
                 className="flex items-center justify-center gap-1 sm:gap-2 bg-green-500 hover:bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors flex-1 sm:flex-none min-w-0"
                 onClick={() => setShowAddChannelModal(true)}
               >
                 <Plus size={14} className="sm:w-4 sm:h-4" />
                 <span className="truncate">Thêm kênh</span>
-              </button>
-              <button
+              </button> */}
+              {/* <button
                 onClick={refresh}
                 className="flex items-center justify-center gap-1 sm:gap-2 bg-white hover:bg-gray-50 text-gray-700 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium border border-gray-300 transition-colors flex-1 sm:flex-none min-w-0"
               >
                 <RefreshCw size={14} className="sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Làm mới</span>
                 <span className="sm:hidden">Mới</span>
-              </button>
+              </button> */}
             </div>
           </div>
 
@@ -497,56 +699,131 @@ const ChannelManagement: React.FC = () => {
             {/* Channel Tabs */}
             {viewMode === 'channels' && ['zalo', 'zalo-oa', 'messenger'].includes(activeTab) && (
               <div>
-                <div className="mb-4 sm:mb-6">
-                  <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-800">
-                    {activeTab === 'zalo' && 'Kênh Zalo'}
-                    {activeTab === 'zalo-oa' && 'Kênh Zalo OA'}
-                    {activeTab === 'messenger' && 'Kênh Messenger'}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                    {activeTab === 'zalo' && 'Quản lý các tài khoản Zalo kết nối với hệ thống chatbot'}
-                    {activeTab === 'zalo-oa' && 'Quản lý các tài khoản Zalo Official Account kết nối với hệ thống chatbot'}
-                    {activeTab === 'messenger' && 'Quản lý các trang Facebook kết nối với hệ thống chatbot qua Messenger'}
-                  </p>
-                </div>
+                {activeTab === 'zalo-oa' ? (
+                  // Sử dụng ZaloOATab component cho Zalo OA
+                  <div className="bg-white rounded-lg shadow-sm -m-3 sm:-m-4 lg:-m-6">
+                    <ZaloOATab 
+                      initialActiveTab="connect"
+                      key={activeTab} // Force re-render when tab changes
+                    />
+                  </div>
+                ) : activeTab === 'zalo' ? (
+                  // Sử dụng ZaloTab component cho Zalo cá nhân
+                  <div className="bg-white rounded-lg shadow-sm -m-3 sm:-m-4 lg:-m-6">
+                    <ZaloTab 
+                      initialActiveTab="login"
+                      key={activeTab} // Force re-render when tab changes
+                    />
+                  </div>
+                ) : activeTab === 'messenger' ? (
+                  // Sử dụng FacebookConversationsTab component cho Messenger
+                  <div className="bg-white rounded-lg shadow-sm -m-3 sm:-m-4 lg:-m-6">
+                    <FacebookConversationsTab 
+                      key={activeTab} // Force re-render when tab changes
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-4 sm:mb-6">
+                      <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-800">
+                        Kênh
+                      </h2>
+                    </div>
 
-                <ChannelList
-                  channels={filteredChannels}
-                  activeTab={activeTab}
-                  onConnect={handleConnectChannel}
-                  onDisconnect={(channelId) => updateChannelStatus(channelId, 'disconnected')}
-                  onDelete={deleteChannel}
-                  onAddChannel={() => setShowAddChannelModal(true)}
-                  onViewMessages={handleViewMessages}
-                />
+                    <ChannelList
+                      channels={filteredChannels}
+                      activeTab={activeTab}
+                      onConnect={handleConnectChannel}
+                      onDisconnect={(channelId) => updateChannelStatus(channelId, 'disconnected')}
+                      onDelete={deleteChannel}
+                      onAddChannel={() => setShowAddChannelModal(true)}
+                      onViewMessages={handleViewMessages}
+                    />
+                  </>
+                )}
               </div>
             )}
 
             {/* Conversations Tab - Shows all conversations from all channels */}
             {viewMode === 'channels' && activeTab === 'conversations' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                <div className="lg:col-span-1">
-                  <ConversationList
-                    conversations={allConversations}
-                    activeConversation={activeAllConversation}
-                    onConversationSelect={setActiveAllConversation}
-                  />
-                </div>
-                <div className="lg:col-span-2">
-                  {getActiveAllConversation() ? (
-                    <ChatArea
-                      conversation={getActiveAllConversation()!}
-                      onSendMessage={(message) => sendMessageToAllConversation(activeAllConversation, message)}
-                      onAddToFAQ={handleAddToFAQ}
-                    />
-                  ) : (
-                    <div className="h-[400px] sm:h-[500px] flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="text-center text-gray-500">
-                        <p className="text-sm">Chọn một cuộc hội thoại để xem tin nhắn</p>
-                      </div>
+              <div>
+                <div className="mb-4 sm:mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-800">
+                        Tất cả Hội thoại
+                      </h2>
+                      <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                        Xem và quản lý tất cả hội thoại từ tất cả các nền tảng đã kết nối
+                        {conversationFilter !== 'all' && (
+                          <span className="ml-2 text-blue-600">
+                            ({filteredAllConversations.length} {conversationFilter === 'zalo' ? 'Zalo' : conversationFilter === 'zalo-oa' ? 'Zalo OA' : 'Messenger'})
+                          </span>
+                        )}
+                      </p>
                     </div>
-                  )}
+                    {conversationFilter === 'all' && (
+                      <div className="text-sm text-gray-500">
+                        Tổng: {filteredAllConversations.length} hội thoại
+                      </div>
+                    )}
+                  </div>
                 </div>
+                
+                {loadingAllConversations ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                      <p className="text-gray-500">Đang tải hội thoại...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                    <div className="lg:col-span-1">
+                      <ConversationList
+                        conversations={filteredAllConversations}
+                        activeConversation={activeAllConversation}
+                        onConversationSelect={(id) => {
+                          setActiveAllConversation(id);
+                          const conv = filteredAllConversations.find(c => c.id === id);
+                          if (conv) {
+                            loadMessagesForConversation(conv);
+                          }
+                        }}
+                        showChannelFilter={true}
+                        channelFilter={conversationFilter}
+                        onChannelFilterChange={setConversationFilter}
+                      />
+                    </div>
+                    <div className="lg:col-span-2">
+                      {getActiveAllConversation() ? (
+                        loadingAllMessages === activeAllConversation ? (
+                          <div className="h-[400px] sm:h-[500px] flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
+                            <div className="text-center">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                              <p className="text-gray-500 text-sm">Đang tải tin nhắn...</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <ChatArea
+                            conversation={{
+                              ...getActiveAllConversation()!,
+                              messages: allConversationMessages[activeAllConversation] || []
+                            }}
+                            onSendMessage={(message) => sendMessageToAllConversation(activeAllConversation, message)}
+                            onAddToFAQ={handleAddToFAQ}
+                          />
+                        )
+                      ) : (
+                        <div className="h-[400px] sm:h-[500px] flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="text-center text-gray-500">
+                            <p className="text-sm">Chọn một cuộc hội thoại để xem tin nhắn</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
