@@ -231,10 +231,11 @@ const DeviceManagement: React.FC = () => {
   }, [activeSubTab]);
 
   // Fetch user devices với server-side pagination
-  const fetchUserDevices = async () => {
+  const fetchUserDevices = async (pageNum?: number) => {
     setLoadingUserDevices(true);
     try {
-      const skip = (userDevicesPaginationState.pageNum - 1) * userDevicesPaginationState.pageSize;
+      const page = pageNum ?? userDevicesPaginationState.pageNum;
+      const skip = (page - 1) * userDevicesPaginationState.pageSize;
       const response = await deviceApiService.getUserDevices(
         undefined, // userId
         skip,
@@ -245,6 +246,7 @@ const DeviceManagement: React.FC = () => {
       setUserDevices(list.map((item) => ({ ...item, selected: false })) as unknown as UserDevice[]);
       setUserDevicesPaginationState(prev => ({
         ...prev,
+        pageNum: page,
         total: response.pagination.total,
         totalPages: response.pagination.totalPages,
       }));
@@ -458,8 +460,11 @@ const DeviceManagement: React.FC = () => {
     setEditingDevice(null);
   };
 
-  const handleEditSuccess = () => {
+  const handleEditSuccess = async () => {
     handleCloseEditForm();
+    // Refresh lại danh sách thiết bị đang hiển thị (server-side pagination)
+    await fetchUserDevices();
+    // Cũng refresh toàn bộ data từ hook
     refetch();
   };
 
@@ -899,12 +904,16 @@ const DeviceManagement: React.FC = () => {
         return (
           <MyDeviceForm
             formData={deviceForms.myDeviceForm}
-            onSubmit={(e: React.FormEvent) => {
-              deviceForms.handleSubmitMyDevice(e);
-              handleCloseAddForm();
-            }}
             onChange={deviceForms.handleMyDeviceFormChange}
             onCancel={handleCloseAddForm}
+            onSuccess={async () => {
+              handleCloseAddForm();
+              // Refresh lại danh sách thiết bị đang hiển thị (server-side pagination)
+              // Reset về trang đầu để xem thiết bị vừa thêm
+              await fetchUserDevices(1);
+              // Cũng refresh toàn bộ data từ hook
+              refetch();
+            }}
           />
         );
       case 'device-info':
@@ -1035,8 +1044,14 @@ const DeviceManagement: React.FC = () => {
         </div>
 
         {showEditForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity duration-300"
+            onClick={handleCloseEditForm}
+          >
+            <div
+              className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl transform transition-all duration-300 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
               <MyDeviceForm
                 editMode={true}
                 deviceId={editingDevice?.id}
@@ -1080,8 +1095,14 @@ const DeviceManagement: React.FC = () => {
         )}
 
         {showAddForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity duration-300"
+            onClick={handleCloseAddForm}
+          >
+            <div
+              className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl transform transition-all duration-300 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
               {renderForm()}
             </div>
           </div>

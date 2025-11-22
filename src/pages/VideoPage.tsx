@@ -17,12 +17,16 @@ import {
   Layers,
   ChevronDown,
   Loader2,
+  Podcast,
+  Speech,
 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { useApiKeys } from "../hooks/useApiKeys";
 import { getApiBaseUrl, getVideoApiBaseUrl, useVideoProgress, VideoProgressDisplay } from "../components/VideoCreation/VideoCreationShared";
 import { getAuthToken } from "../services/apiService";
 import VideoPostModal, { SelectedAccount, PostContent } from "../components/VideoPostModal";
+import { PodcastMode } from "../components/VideoCreation/PodcastMode";
+import { useAuth } from "../hooks/useAuth";
 
 // Types
 interface VideoData {
@@ -1376,14 +1380,17 @@ const SingleVoiceMode: React.FC = () => {
   );
 };
 
-// Hook giả lập useAuth
-const useAuth = () => ({
-  isAuthenticated: true,
-  isLoading: false,
-});
-
 export const VideoPage: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const [mode, setMode] = useState<"single" | "podcast">(() => {
+    const saved = sessionStorage.getItem("video_creation_mode");
+    return saved === "podcast" ? "podcast" : "single";
+  });
+
+  const handleModeChange = (nextMode: "single" | "podcast") => {
+    setMode(nextMode);
+    sessionStorage.setItem("video_creation_mode", nextMode);
+  };
 
   if (isLoading)
     return (
@@ -1413,7 +1420,37 @@ export const VideoPage: React.FC = () => {
             muốn.
           </p>
         </div>
-        <SingleVoiceMode />
+        <div className="flex justify-center mb-6 lg:mb-10">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-1 flex gap-1">
+            <button
+              type="button"
+              onClick={() => handleModeChange("single")}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium transition-all duration-200 ${
+                mode === "single"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+              }`}
+              aria-pressed={mode === "single"}
+            >
+              <Speech size={20} />
+              <span className="text-sm sm:text-base">Chế độ 1 giọng</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleModeChange("podcast")}
+              className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium transition-all duration-200 ${
+                mode === "podcast"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+              }`}
+              aria-pressed={mode === "podcast"}
+            >
+              <Podcast size={20} />
+              <span className="text-sm sm:text-base">Chế độ Podcast</span>
+            </button>
+          </div>
+        </div>
+        {mode === "single" ? <SingleVoiceMode /> : <PodcastMode />}
       </main>
     </div>
   );

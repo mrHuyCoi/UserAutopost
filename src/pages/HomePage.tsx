@@ -3,13 +3,10 @@ import { Link } from 'react-router-dom';
 import { 
   Share2, 
   Users, 
-  Calendar,  
-  ArrowRight, 
   Play, 
   BarChart3,
   Shield,
   Clock,
-  Sparkles,
   TrendingUp,
   Video,
   MessageCircle,
@@ -25,10 +22,10 @@ import {
   Briefcase,
   Heart
 } from 'lucide-react';
-import { ZaloButton } from '../components/ZaloButton';
-import ChatBot from '../components/ChatBot';
+import { useAuth } from '../hooks/useAuth';
 
 export const HomePage: React.FC = () => {
+  const { isAuthenticated } = useAuth();
   const features = [
     {
       icon: <Video className="text-white" size={24} />,
@@ -263,7 +260,7 @@ export const HomePage: React.FC = () => {
 
           <div className="mt-auto">
             <Link
-              to="/register"
+              to={isAuthenticated ? "/pricing" : "/login"}
               className="w-full py-3 rounded-xl font-semibold text-lg transition-all duration-300 flex items-center justify-center gap-2 border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
             >
               <ShoppingCart size={20} />
