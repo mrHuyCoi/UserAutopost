@@ -7,7 +7,7 @@ import {
   apiPostFormData,
 } from './apiService';
 
-const BASE = '/scheduled';
+const BASE = '/scheduled-videos';
 
 export type AiPlatform = 'gemini' | 'openai' | string;
 
