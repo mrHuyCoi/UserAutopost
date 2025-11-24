@@ -99,7 +99,7 @@ export const useAuth = () => {
   ) => {
     try {
       const apiBaseUrl = getApiBaseUrl();
-      const plansResponse = await fetch(
+      /*const plansResponse = await fetch(
         `${apiBaseUrl}/api/v1/subscriptions/plans`
       );
       if (!plansResponse.ok) {
@@ -112,7 +112,7 @@ export const useAuth = () => {
       );
       if (!freePlan) {
         throw new Error('"miễn phí" subscription plan not found.');
-      }
+      }*/
       const response = await fetch(
         `${apiBaseUrl}/api/v1/registration/register`,
         {
@@ -124,7 +124,7 @@ export const useAuth = () => {
             email: email.trim(),
             password: password,
             full_name: full_name.trim(),
-            subscription_id: freePlan.id,
+            // subscription_id: freePlan.id,
             verification_code: verificationCode,
           }),
         }
