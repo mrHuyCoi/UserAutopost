@@ -92,66 +92,72 @@ export const useAuth = () => {
   };
 
   const register = async (
-    email: string,
-    password: string,
-    full_name: string,
-    verificationCode: string
-  ) => {
+  email: string,
+  password: string,
+  full_name: string,
+  verificationCode: string
+) => {
+  try {
+    const apiBaseUrl = getApiBaseUrl();
+
+    let subscription_id = undefined;
+
+    // Thử lấy plan, nhưng không bắt buộc
     try {
-      const apiBaseUrl = getApiBaseUrl();
-      /*const plansResponse = await fetch(
-        `${apiBaseUrl}/api/v1/subscriptions/plans`
-      );
-      if (!plansResponse.ok) {
-        throw new Error("Failed to fetch subscription plans.");
-      }
-      const plans = await plansResponse.json();
-
-      const freePlan = plans.find(
-        (plan: any) => plan.name.toLowerCase() === "miễn phí"
-      );
-      if (!freePlan) {
-        throw new Error('"miễn phí" subscription plan not found.');
-      }*/
-      const response = await fetch(
-        `${apiBaseUrl}/api/v1/registration/register`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: email.trim(),
-            password: password,
-            full_name: full_name.trim(),
-            // subscription_id: freePlan.id,
-            verification_code: verificationCode,
-          }),
+      const plansResponse = await fetch(`${apiBaseUrl}/api/v1/subscriptions/plans`);
+      if (plansResponse.ok) {
+        const plans = await plansResponse.json();
+        // tuỳ backend: nếu muốn lấy plan đầu tiên
+        if (Array.isArray(plans) && plans.length > 0) {
+          subscription_id = plans[0].id; // hoặc chọn theo tiêu chí nào đó
         }
-      );
-
-      const data = await response.json();
-
-      if (response.status === 201) {
-        return {
-          success: true,
-          message: "Đăng ký thành công! Vui lòng đăng nhập.",
-        };
-      } else {
-        return {
-          success: false,
-          message:
-            data.detail ||
-            `Lỗi server (${response.status}). Vui lòng thử lại sau.`,
-        };
       }
-    } catch (error) {
+    } catch (e) {
+      // Bỏ qua lỗi, không cần plan
+      subscription_id = undefined;
+    }
+
+    // Body luôn hợp lệ ngay cả khi subscription_id = undefined
+    const bodyData: any = {
+      email: email.trim(),
+      password,
+      full_name: full_name.trim(),
+      verification_code: verificationCode,
+    };
+
+    if (subscription_id) {
+      bodyData.subscription_id = subscription_id;
+    }
+
+    const response = await fetch(`${apiBaseUrl}/api/v1/registration/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bodyData),
+    });
+
+    const data = await response.json();
+
+    if (response.status === 201) {
+      return {
+        success: true,
+        message: "Đăng ký thành công! Vui lòng đăng nhập.",
+      };
+    } else {
       return {
         success: false,
-        message: `Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng và đảm bảo server đang hoạt động.`,
+        message:
+          data.detail ||
+          `Lỗi server (${response.status}). Vui lòng thử lại sau.`,
       };
     }
-  };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Không thể kết nối đến server. Vui lòng kiểm tra kết nối.`,
+    };
+  }
+};
+
 
   const login = async (username: string, password: string) => {
     try {
