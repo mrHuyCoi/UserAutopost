@@ -5,7 +5,6 @@ import {
   Film,
   Type,
   Volume2,
-  Save,
   Send,
   RefreshCw,
   Play,
@@ -22,9 +21,18 @@ import {
 } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { useApiKeys } from "../hooks/useApiKeys";
-import { getApiBaseUrl, getVideoApiBaseUrl, useVideoProgress, VideoProgressDisplay } from "../components/VideoCreation/VideoCreationShared";
+import {
+  getApiBaseUrl,
+  getVideoApiBaseUrl,
+  useVideoProgress,
+  VideoProgressDisplay,
+  VideoGallery,
+} from "../components/VideoCreation/VideoCreationShared";
 import { getAuthToken } from "../services/apiService";
-import VideoPostModal, { SelectedAccount, PostContent } from "../components/VideoPostModal";
+import VideoPostModal, {
+  SelectedAccount,
+  PostContent,
+} from "../components/VideoPostModal";
 import { PodcastMode } from "../components/VideoCreation/PodcastMode";
 import { useAuth } from "../hooks/useAuth";
 
@@ -93,7 +101,6 @@ const TABS = [
   { id: "audio", label: "Âm thanh", icon: Volume2 },
 ];
 
-
 // Components
 const Tab: React.FC<{
   active: boolean;
@@ -114,50 +121,6 @@ const Tab: React.FC<{
   </button>
 );
 
-const VideoItem: React.FC<{
-  video: VideoData;
-  selected: boolean;
-  onClick: () => void;
-}> = ({ video, selected, onClick }) => (
-  <div
-    onClick={onClick}
-    className={`flex items-center gap-3 p-3 rounded-lg bg-white mb-3 cursor-pointer transition-all duration-200 border-2 ${
-      selected
-        ? "border-blue-600 bg-blue-50"
-        : "border-transparent hover:border-blue-400"
-    }`}
-  >
-    <div className="w-16 h-12 rounded-md bg-gray-200 flex items-center justify-center flex-shrink-0">
-      <Video className="text-gray-500" size={18} />
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="font-semibold text-gray-900 text-sm mb-1 truncate">
-        {video.title}
-      </div>
-      <div className="text-xs text-gray-500">{video.duration}</div>
-    </div>
-  </div>
-);
-
-
-const PostModeOption: React.FC<{
-  icon: React.ComponentType<{ size?: number | string; className?: string }>;
-  label: string;
-  selected: boolean;
-  onClick: () => void;
-}> = ({ icon: Icon, label, selected, onClick }) => (
-  <div
-    onClick={onClick}
-    className={`border rounded-lg p-3 text-center cursor-pointer transition-all duration-200 ${
-      selected
-        ? "border-blue-600 bg-blue-50"
-        : "border-gray-300 hover:border-blue-400"
-    }`}
-  >
-    <Icon className="mx-auto mb-1 text-blue-600" size={20} />
-    <div className="font-medium text-gray-900 text-sm">{label}</div>
-  </div>
-);
 
 const Slider: React.FC<{
   label: string;
@@ -274,7 +237,6 @@ const VideoModal: React.FC<{
     </div>
   );
 };
-
 
 const MobileTabSelect: React.FC<{
   activeTab: string;
@@ -690,8 +652,12 @@ const TabContent: React.FC<{
             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
           >
             <option value="azure_tts_v1">Azure TTS V1 (Nhanh)</option>
-            <option value="azure_tts_v2">Azure TTS V2 (Nhanh, Cần API Key)</option>
-            <option value="gemini">Gemini 2.5 Flash TTS (Nhanh, Cần API Key)</option>
+            <option value="azure_tts_v2">
+              Azure TTS V2 (Nhanh, Cần API Key)
+            </option>
+            <option value="gemini">
+              Gemini 2.5 Flash TTS (Nhanh, Cần API Key)
+            </option>
           </select>
         </div>
 
@@ -704,21 +670,29 @@ const TabContent: React.FC<{
             onChange={(e) => setSelectedVoice(e.target.value)}
             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
           >
-            {ttsServer === 'azure_tts_v1' && (
+            {ttsServer === "azure_tts_v1" && (
               <>
                 <option value="vi-VN-HoaiMyNeural">vi-VN-HoaiMyNeural</option>
                 <option value="vi-VN-NamMinhNeural">vi-VN-NamMinhNeural</option>
               </>
             )}
-            {ttsServer === 'azure_tts_v2' && (
+            {ttsServer === "azure_tts_v2" && (
               <>
-                <option value="en-US-AvaMultilingualNeural-V2">en-US-AvaMultilingualNeural-V2 (Female)</option>
-                <option value="en-US-AndrewMultilingualNeural-V2">en-US-AndrewMultilingualNeural-V2 (Male)</option>
-                <option value="en-US-EmmaMultilingualNeural-V2">en-US-EmmaMultilingualNeural-V2 (Female)</option>
-                <option value="en-US-BrianMultilingualNeural-V2">en-US-BrianMultilingualNeural-V2 (Male)</option>
+                <option value="en-US-AvaMultilingualNeural-V2">
+                  en-US-AvaMultilingualNeural-V2 (Female)
+                </option>
+                <option value="en-US-AndrewMultilingualNeural-V2">
+                  en-US-AndrewMultilingualNeural-V2 (Male)
+                </option>
+                <option value="en-US-EmmaMultilingualNeural-V2">
+                  en-US-EmmaMultilingualNeural-V2 (Female)
+                </option>
+                <option value="en-US-BrianMultilingualNeural-V2">
+                  en-US-BrianMultilingualNeural-V2 (Male)
+                </option>
               </>
             )}
-            {ttsServer === 'gemini' && (
+            {ttsServer === "gemini" && (
               <>
                 <option value="Puck">Puck - Nam</option>
                 <option value="Charon">Charon - Nam</option>
@@ -802,27 +776,31 @@ const TabContent: React.FC<{
 
 const SingleVoiceMode: React.FC = () => {
   const { savedApiKeys } = useApiKeys();
-  const { completedVideos, videoProgress, startVideoCreation, stopVideoCreation } = useVideoProgress();
+  const {
+    completedVideos,
+    videoProgress,
+    startVideoCreation,
+    stopVideoCreation,
+  } = useVideoProgress();
   const [activeTab, setActiveTab] = useState("script");
-  const [selectedVideo, setSelectedVideo] = useState(1);
+  const [selectedVideo] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState("vi-VN-HoaiMyNeural");
-  const [postMode, setPostMode] = useState("save");
   const [subtitleSize, setSubtitleSize] = useState(60);
   const [voiceSpeed, setVoiceSpeed] = useState(1.0);
   const [musicVolume, setMusicVolume] = useState(0.2);
-  
+
   // Video settings
   const [videoSource, setVideoSource] = useState("Pexels");
   const [aspectRatio, setAspectRatio] = useState("Dọc 9:16");
   const [maxSegmentDuration, setMaxSegmentDuration] = useState(5);
   const [concurrentVideos, setConcurrentVideos] = useState(1);
-  
+
   // Audio settings
   const [ttsServer, setTtsServer] = useState("azure_tts_v1");
   const [voiceVolume, setVoiceVolume] = useState(1.0);
   const [backgroundMusic, setBackgroundMusic] = useState("Ngẫu nhiên");
-  
+
   // Subtitle settings
   const [enableSubtitles, setEnableSubtitles] = useState(true);
   const [subtitlePosition, setSubtitlePosition] = useState("bottom");
@@ -847,13 +825,13 @@ const SingleVoiceMode: React.FC = () => {
     return "gemini";
   });
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
-  
+
   // Post video states
   const [showPostModal, setShowPostModal] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
-  const [videoTitle, setVideoTitle] = useState("");
-  const [videoDescription, setVideoDescription] = useState("");
-  const [videoHashtags, setVideoHashtags] = useState("");
+  const [videoTitle] = useState("");
+  const [videoDescription] = useState("");
+  const [videoHashtags] = useState("");
 
   // Save to sessionStorage
   useEffect(() => {
@@ -868,17 +846,17 @@ const SingleVoiceMode: React.FC = () => {
 
   // Update voice when TTS server changes
   useEffect(() => {
-    if (ttsServer === 'azure_tts_v1') {
-      if (!selectedVoice.startsWith('vi-VN-')) {
-        setSelectedVoice('vi-VN-HoaiMyNeural');
+    if (ttsServer === "azure_tts_v1") {
+      if (!selectedVoice.startsWith("vi-VN-")) {
+        setSelectedVoice("vi-VN-HoaiMyNeural");
       }
-    } else if (ttsServer === 'azure_tts_v2') {
-      if (!selectedVoice.includes('MultilingualNeural-V2')) {
-        setSelectedVoice('en-US-AvaMultilingualNeural-V2');
+    } else if (ttsServer === "azure_tts_v2") {
+      if (!selectedVoice.includes("MultilingualNeural-V2")) {
+        setSelectedVoice("en-US-AvaMultilingualNeural-V2");
       }
-    } else if (ttsServer === 'gemini') {
-      if (!['Puck', 'Charon', 'Zephyr', 'Kore'].includes(selectedVoice)) {
-        setSelectedVoice('Puck');
+    } else if (ttsServer === "gemini") {
+      if (!["Puck", "Charon", "Zephyr", "Kore"].includes(selectedVoice)) {
+        setSelectedVoice("Puck");
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -925,33 +903,37 @@ const SingleVoiceMode: React.FC = () => {
       if (scriptResponse.ok) {
         const scriptData = await scriptResponse.json();
         // API trả về field 'script' thay vì 'video_script'
-        const generatedScript = scriptData.data?.script || scriptData.data?.video_script;
-        
+        const generatedScript =
+          scriptData.data?.script || scriptData.data?.video_script;
+
         if (!generatedScript) {
-          alert('Không nhận được kịch bản từ API. Vui lòng thử lại.');
+          alert("Không nhận được kịch bản từ API. Vui lòng thử lại.");
           setIsGeneratingScript(false);
           return;
         }
-        
+
         setVideoScript(generatedScript);
 
         // Generate keywords
         const videoApiBaseUrl = getVideoApiBaseUrl();
-        const keywordsResponse = await fetch(`${videoApiBaseUrl}/api/v1/terms`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          body: JSON.stringify({
-            video_subject: videoTopic,
-            video_script: generatedScript,
-            amount: 5,
-            gemini_key: selectedAiProvider === "gemini" ? geminiApiKey : null,
-            openai_key: selectedAiProvider === "openai" ? openaiApiKey : null,
-            llm_provider: selectedAiProvider,
-          }),
-        });
+        const keywordsResponse = await fetch(
+          `${videoApiBaseUrl}/api/v1/terms`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: JSON.stringify({
+              video_subject: videoTopic,
+              video_script: generatedScript,
+              amount: 5,
+              gemini_key: selectedAiProvider === "gemini" ? geminiApiKey : null,
+              openai_key: selectedAiProvider === "openai" ? openaiApiKey : null,
+              llm_provider: selectedAiProvider,
+            }),
+          }
+        );
 
         if (keywordsResponse.ok) {
           const keywordsData = await keywordsResponse.json();
@@ -989,23 +971,34 @@ const SingleVoiceMode: React.FC = () => {
       }
 
       // Build preview_content based on selected platforms
-      const previewContent: Record<string, { content: string | { title: string; description: string; tags: string[] } }> = {};
-      
+      const previewContent: Record<
+        string,
+        {
+          content:
+            | string
+            | { title: string; description: string; tags: string[] };
+        }
+      > = {};
+
       selectedAccounts.forEach((account) => {
-        if (account.platform_type === 'youtube') {
+        if (account.platform_type === "youtube") {
           // YouTube format
           previewContent.youtube = {
             content: {
               title: postContent.title || videoTopic,
-              description: postContent.description || videoScript.substring(0, 5000),
+              description:
+                postContent.description || videoScript.substring(0, 5000),
               tags: postContent.hashtags
-                ? postContent.hashtags.split(',').map(t => t.trim().replace('#', ''))
-                : videoKeywords.split(',').map(k => k.trim()),
+                ? postContent.hashtags
+                    .split(",")
+                    .map((t) => t.trim().replace("#", ""))
+                : videoKeywords.split(",").map((k) => k.trim()),
             },
           };
         } else {
           // Facebook and Instagram format
-          const content = postContent.description || videoScript.substring(0, 2000);
+          const content =
+            postContent.description || videoScript.substring(0, 2000);
           const hashtags = postContent.hashtags || videoKeywords;
           previewContent[account.platform_type] = {
             content: `${content}\n\n${hashtags}`,
@@ -1021,35 +1014,41 @@ const SingleVoiceMode: React.FC = () => {
 
       // Create FormData
       const formData = new FormData();
-      formData.append('preview_content', JSON.stringify(previewContent));
-      formData.append('scheduled_at', new Date().toISOString());
-      formData.append('platform_specific_data', JSON.stringify(platformSpecificData));
-      formData.append('media_files', videoFile);
-      formData.append('publish_immediately', 'true');
+      formData.append("preview_content", JSON.stringify(previewContent));
+      formData.append("scheduled_at", new Date().toISOString());
+      formData.append(
+        "platform_specific_data",
+        JSON.stringify(platformSpecificData)
+      );
+      formData.append("media_files", videoFile);
+      formData.append("publish_immediately", "true");
 
       // Call schedule-post API
-      const response = await fetch(`${apiBaseUrl}/api/v1/scheduled-videos/schedule-post`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      });
+      const response = await fetch(
+        `${apiBaseUrl}/api/v1/scheduled-videos/schedule-post`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Lỗi khi đăng bài');
+        throw new Error(errorData.message || "Lỗi khi đăng bài");
       }
 
       await response.json();
       alert(`Đã đăng bài thành công lên ${selectedAccounts.length} nền tảng!`);
-      
+
       // Close modal
       setShowPostModal(false);
-
     } catch (error: unknown) {
-      console.error('Error posting video:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra';
+      console.error("Error posting video:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Có lỗi xảy ra";
       alert(`Lỗi khi đăng bài: ${errorMessage}`);
     } finally {
       setIsPosting(false);
@@ -1059,42 +1058,44 @@ const SingleVoiceMode: React.FC = () => {
   // Handle create video
   const handleCreateVideo = async () => {
     if (!videoTopic.trim() || !videoScript.trim() || !videoKeywords.trim()) {
-      alert('Vui lòng điền đầy đủ thông tin');
+      alert("Vui lòng điền đầy đủ thông tin");
       return;
     }
 
     try {
       const videoApiBaseUrl = getVideoApiBaseUrl();
-      
+
       // Map UI values to API values
       const aspectRatioMap: { [key: string]: string } = {
-        'Dọc 9:16': '9:16',
-        'Ngang 16:9': '16:9',
-        'Vuông 1:1': '1:1'
+        "Dọc 9:16": "9:16",
+        "Ngang 16:9": "16:9",
+        "Vuông 1:1": "1:1",
       };
 
       const positionMap: { [key: string]: string } = {
-        'top': 'top',
-        'center': 'center',
-        'bottom': 'bottom',
-        'custom': 'custom'
+        top: "top",
+        center: "center",
+        bottom: "bottom",
+        custom: "custom",
       };
 
       const bgmTypeMap: { [key: string]: string } = {
-        'Ngẫu nhiên': 'random',
-        'Không có': 'none'
+        "Ngẫu nhiên": "random",
+        "Không có": "none",
       };
 
       const ttsServerMap: { [key: string]: string } = {
-        'azure_tts_v1': 'azure-tts-v1',
-        'azure_tts_v2': 'azure-tts-v2',
-        'gemini': 'gemini'
+        azure_tts_v1: "azure-tts-v1",
+        azure_tts_v2: "azure-tts-v2",
+        gemini: "gemini",
       };
 
-      const normalizedAspectRatio = aspectRatioMap[aspectRatio] || '9:16';
-      const normalizedVideoSource = videoSource.trim().toLowerCase() || 'pexels';
-      const normalizedSubtitlePosition = positionMap[subtitlePosition] || 'bottom';
-      const normalizedBgmType = bgmTypeMap[backgroundMusic] || 'random';
+      const normalizedAspectRatio = aspectRatioMap[aspectRatio] || "9:16";
+      const normalizedVideoSource =
+        videoSource.trim().toLowerCase() || "pexels";
+      const normalizedSubtitlePosition =
+        positionMap[subtitlePosition] || "bottom";
+      const normalizedBgmType = bgmTypeMap[backgroundMusic] || "random";
       const normalizedTtsServer = ttsServerMap[ttsServer] || ttsServer;
 
       const requestBody = {
@@ -1102,17 +1103,20 @@ const SingleVoiceMode: React.FC = () => {
         video_script: videoScript,
         video_terms: videoKeywords,
         video_aspect: normalizedAspectRatio,
-        video_concat_mode: 'random',
-        video_transition_mode: 'None',
+        video_concat_mode: "random",
+        video_transition_mode: "None",
         video_clip_duration: maxSegmentDuration,
         video_count: concurrentVideos,
         video_source: normalizedVideoSource,
-        video_materials: [{
-          provider: normalizedVideoSource,
-          url: "",
-          duration: 0
-        }],
-        video_language: scriptLanguage === 'Tiếng Việt' ? 'Vietnamese' : 'English',
+        video_materials: [
+          {
+            provider: normalizedVideoSource,
+            url: "",
+            duration: 0,
+          },
+        ],
+        video_language:
+          scriptLanguage === "Tiếng Việt" ? "Vietnamese" : "English",
         voice_name: selectedVoice,
         voice_volume: voiceVolume,
         tts_server: normalizedTtsServer,
@@ -1121,182 +1125,232 @@ const SingleVoiceMode: React.FC = () => {
         bgm_file: "",
         bgm_volume: musicVolume,
         subtitle_enabled: enableSubtitles,
-        type_subtitle: 'normal',
-        subtitle_provider: 'edge',
+        type_subtitle: "normal",
+        subtitle_provider: "edge",
         subtitle_position: normalizedSubtitlePosition,
         custom_position: 70,
         font_name: subtitleFont,
-        text_fore_color: '#FFFFFF',
+        text_fore_color: "#FFFFFF",
         text_background_color: true,
         font_size: subtitleSize,
-        stroke_color: '#000000',
+        stroke_color: "#000000",
         stroke_width: 1.5,
         n_threads: 4,
         paragraph_number: 1,
-        gemini_key: geminiApiKey || '',
-        openai_key: openaiApiKey || '',
-        speech_key: '',
-        speech_region: ''
+        gemini_key: geminiApiKey || "",
+        openai_key: openaiApiKey || "",
+        speech_key: "",
+        speech_region: "",
       };
 
       const response = await fetch(`${videoApiBaseUrl}/api/v1/videos`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
         const data = await response.json();
         const taskId = data.data.task_id;
         startVideoCreation(taskId);
-        if (postMode === "post") {
-          // Show post modal after video creation starts
-          setShowPostModal(true);
-        } else {
-          alert('Đã bắt đầu tạo video! Vui lòng đợi video được tạo xong.');
-        }
+        alert("Đã bắt đầu tạo video! Vui lòng đợi video được tạo xong.");
       } else {
         const errorData = await response.json().catch(() => ({}));
-        alert(errorData.message || 'Lỗi khi tạo video');
+        alert(errorData.message || "Lỗi khi tạo video");
       }
     } catch (error) {
-      console.error('Error creating video:', error);
-      alert('Lỗi kết nối khi tạo video');
+      console.error("Error creating video:", error);
+      alert("Lỗi kết nối khi tạo video");
     }
   };
 
-  // Handle open post modal when postMode is "post"
-  const handleCreateVideoClick = () => {
-    if (postMode === "post") {
-      // Create video first, then show post modal
-      handleCreateVideo();
-    } else {
-      // Create video and save
-      handleCreateVideo();
+  const resetForm = () => {
+    const defaultState = {
+      videoTopic: "",
+      videoScript: "",
+      videoKeywords: "",
+      scriptLanguage: "Tiếng Việt",
+      voiceSpeed: 1.0,
+      voiceVolume: 1.0,
+      subtitleSize: 60,
+      subtitlePosition: "bottom",
+      subtitleFont: "Charm-Bold.ttf",
+      enableSubtitles: true,
+      backgroundMusic: "Ngẫu nhiên",
+      musicVolume: 0.2,
+      videoSource: "Pexels",
+      aspectRatio: "Dọc 9:16",
+      maxSegmentDuration: 5,
+      concurrentVideos: 1,
+      ttsServer: "azure_tts_v1",
+      selectedVoice: "vi-VN-HoaiMyNeural",
+    };
+
+    setVideoTopic(defaultState.videoTopic);
+    setVideoScript(defaultState.videoScript);
+    setVideoKeywords(defaultState.videoKeywords);
+    setScriptLanguage(defaultState.scriptLanguage);
+    setVoiceSpeed(defaultState.voiceSpeed);
+    setVoiceVolume(defaultState.voiceVolume);
+    setSubtitleSize(defaultState.subtitleSize);
+    setSubtitlePosition(defaultState.subtitlePosition);
+    setSubtitleFont(defaultState.subtitleFont);
+    setEnableSubtitles(defaultState.enableSubtitles);
+    setBackgroundMusic(defaultState.backgroundMusic);
+    setMusicVolume(defaultState.musicVolume);
+    setVideoSource(defaultState.videoSource);
+    setAspectRatio(defaultState.aspectRatio);
+    setMaxSegmentDuration(defaultState.maxSegmentDuration);
+    setConcurrentVideos(defaultState.concurrentVideos);
+    setTtsServer(defaultState.ttsServer);
+    setSelectedVoice(defaultState.selectedVoice);
+  };
+
+  const handleReset = () => {
+    if (
+      window.confirm(
+        "Bạn có chắc muốn đặt lại? Video đã tạo và các dữ liệu nhập sẽ bị xóa."
+      )
+    ) {
+      resetForm();
+      sessionStorage.removeItem("videoTopic");
+      sessionStorage.removeItem("videoScript");
+      sessionStorage.removeItem("videoKeywords");
+      sessionStorage.removeItem("scriptLanguage");
+      stopVideoCreation();
     }
+  };
+
+  const handleCreateVideoClick = () => {
+    handleCreateVideo();
+  };
+
+  const handleOpenPostModal = () => {
+    if (completedVideos.length === 0) {
+      alert("Vui lòng tạo và hoàn thành video trước khi đăng bài.");
+      return;
+    }
+    setShowPostModal(true);
   };
 
   return (
-    <div className="w-full">
-      <div className="flex flex-col lg:grid lg:grid-cols-[1fr,400px] gap-6 lg:gap-8">
-        {/* Settings Panel */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 md:p-6 lg:p-8 order-2 lg:order-1">
-          {/* Mobile Tab Select */}
-          <MobileTabSelect activeTab={activeTab} setActiveTab={setActiveTab} />
+    <div className="w-full gap-6 lg:gap-8">
+      {/* Settings Panel */}
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 md:p-6 lg:p-8 order-2 lg:order-1">
+        {/* Mobile Tab Select */}
+        <MobileTabSelect activeTab={activeTab} setActiveTab={setActiveTab} />
 
-          {/* Desktop Tabs */}
-          <div className="hidden lg:block border-b border-gray-200 mb-6">
-            <div className="flex -mb-px overflow-x-auto">
-              {TABS.map((tab) => (
-                <Tab
-                  key={tab.id}
-                  active={activeTab === tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  icon={tab.icon}
-                  label={tab.label}
-                />
-              ))}
-            </div>
-          </div>
-
-          <TabContent
-            activeTab={activeTab}
-            subtitleSize={subtitleSize}
-            setSubtitleSize={setSubtitleSize}
-            selectedVoice={selectedVoice}
-            setSelectedVoice={setSelectedVoice}
-            voiceSpeed={voiceSpeed}
-            setVoiceSpeed={setVoiceSpeed}
-            musicVolume={musicVolume}
-            setMusicVolume={setMusicVolume}
-            videoTopic={videoTopic}
-            setVideoTopic={setVideoTopic}
-            videoScript={videoScript}
-            setVideoScript={setVideoScript}
-            videoKeywords={videoKeywords}
-            setVideoKeywords={setVideoKeywords}
-            scriptLanguage={scriptLanguage}
-            setScriptLanguage={setScriptLanguage}
-            isGeneratingScript={isGeneratingScript}
-            onGenerateScript={handleGenerateScriptAndKeywords}
-            videoSource={videoSource}
-            setVideoSource={setVideoSource}
-            aspectRatio={aspectRatio}
-            setAspectRatio={setAspectRatio}
-            maxSegmentDuration={maxSegmentDuration}
-            setMaxSegmentDuration={setMaxSegmentDuration}
-            concurrentVideos={concurrentVideos}
-            setConcurrentVideos={setConcurrentVideos}
-            ttsServer={ttsServer}
-            setTtsServer={setTtsServer}
-            voiceVolume={voiceVolume}
-            setVoiceVolume={setVoiceVolume}
-            backgroundMusic={backgroundMusic}
-            setBackgroundMusic={setBackgroundMusic}
-            enableSubtitles={enableSubtitles}
-            setEnableSubtitles={setEnableSubtitles}
-            subtitlePosition={subtitlePosition}
-            setSubtitlePosition={setSubtitlePosition}
-            subtitleFont={subtitleFont}
-            setSubtitleFont={setSubtitleFont}
-          />
-
-          <div className="mt-6 lg:mt-8 pt-4 lg:pt-6 border-t border-gray-200">
-            <label className="text-sm font-medium text-gray-700 mb-3 block">
-              Chế Độ Đăng Bài
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <PostModeOption
-                icon={Save}
-                label="Lưu vào thư viện"
-                selected={postMode === "save"}
-                onClick={() => setPostMode("save")}
+        {/* Desktop Tabs */}
+        <div className="hidden lg:block border-b border-gray-200 mb-6">
+          <div className="flex -mb-px overflow-x-auto">
+            {TABS.map((tab) => (
+              <Tab
+                key={tab.id}
+                active={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                icon={tab.icon}
+                label={tab.label}
               />
-              <PostModeOption
-                icon={Send}
-                label="Đăng bài ngay"
-                selected={postMode === "post"}
-                onClick={() => setPostMode("post")}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3 mt-6 lg:mt-8">
-            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border-2 border-blue-600 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-sm">
-              <RefreshCw size={16} /> Đặt Lại
-            </button>
-            <button 
-              onClick={handleCreateVideoClick}
-              disabled={videoProgress.isCreating}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md text-sm ${
-                videoProgress.isCreating ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {videoProgress.isCreating ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" /> Đang tạo...
-                </>
-              ) : (
-                <>
-                  <Play size={16} /> {postMode === "post" ? "Đăng Bài Ngay" : "Tạo Video"}
-                </>
-              )}
-            </button>
-          </div>
-          
-          {/* Video Progress Display */}
-          <div className="mt-6">
-            <VideoProgressDisplay 
-              progress={videoProgress} 
-              onStop={stopVideoCreation}
-            />
+            ))}
           </div>
         </div>
 
-        {/* Preview Panel */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 md:p-6 lg:p-8 order-1 lg:order-2">
+        <TabContent
+          activeTab={activeTab}
+          subtitleSize={subtitleSize}
+          setSubtitleSize={setSubtitleSize}
+          selectedVoice={selectedVoice}
+          setSelectedVoice={setSelectedVoice}
+          voiceSpeed={voiceSpeed}
+          setVoiceSpeed={setVoiceSpeed}
+          musicVolume={musicVolume}
+          setMusicVolume={setMusicVolume}
+          videoTopic={videoTopic}
+          setVideoTopic={setVideoTopic}
+          videoScript={videoScript}
+          setVideoScript={setVideoScript}
+          videoKeywords={videoKeywords}
+          setVideoKeywords={setVideoKeywords}
+          scriptLanguage={scriptLanguage}
+          setScriptLanguage={setScriptLanguage}
+          isGeneratingScript={isGeneratingScript}
+          onGenerateScript={handleGenerateScriptAndKeywords}
+          videoSource={videoSource}
+          setVideoSource={setVideoSource}
+          aspectRatio={aspectRatio}
+          setAspectRatio={setAspectRatio}
+          maxSegmentDuration={maxSegmentDuration}
+          setMaxSegmentDuration={setMaxSegmentDuration}
+          concurrentVideos={concurrentVideos}
+          setConcurrentVideos={setConcurrentVideos}
+          ttsServer={ttsServer}
+          setTtsServer={setTtsServer}
+          voiceVolume={voiceVolume}
+          setVoiceVolume={setVoiceVolume}
+          backgroundMusic={backgroundMusic}
+          setBackgroundMusic={setBackgroundMusic}
+          enableSubtitles={enableSubtitles}
+          setEnableSubtitles={setEnableSubtitles}
+          subtitlePosition={subtitlePosition}
+          setSubtitlePosition={setSubtitlePosition}
+          subtitleFont={subtitleFont}
+          setSubtitleFont={setSubtitleFont}
+        />
+
+        <div className="flex flex-col sm:flex-row gap-3 mt-6 lg:mt-8">
+          <button
+            onClick={handleReset}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border-2 border-blue-600 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors text-sm"
+          >
+            <RefreshCw size={16} /> Đặt Lại
+          </button>
+          <button
+            onClick={handleCreateVideoClick}
+            disabled={videoProgress.isCreating}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md text-sm ${
+              videoProgress.isCreating ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+          >
+            {videoProgress.isCreating ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Đang tạo...
+              </>
+            ) : (
+              <>
+                <Play size={16} /> Tạo Video
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="mt-3">
+          <button
+            onClick={handleOpenPostModal}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-emerald-600 text-emerald-600 rounded-lg font-semibold hover:bg-emerald-50 transition-colors text-sm"
+          >
+            <Send size={16} /> Đăng bài ngay
+          </button>
+        </div>
+
+        {/* Video Progress Display */}
+        <div className="mt-6">
+          <VideoProgressDisplay
+            progress={videoProgress}
+            onStop={stopVideoCreation}
+          />
+        </div>
+
+        {completedVideos.length > 0 && (
+          <div className="mt-8">
+            <VideoGallery videos={completedVideos} />
+          </div>
+        )}
+      </div>
+
+      {/* Preview Panel */}
+      {/* <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 md:p-6 lg:p-8 order-1 lg:order-2">
           <h2 className="flex items-center gap-2 text-lg md:text-xl font-semibold text-gray-900 mb-4 lg:mb-6 pb-3 lg:pb-4 border-b border-gray-200">
             <Film size={20} className="text-blue-600 flex-shrink-0" />
             Chọn Video
@@ -1355,8 +1409,7 @@ const SingleVoiceMode: React.FC = () => {
               />
             </div>
           </div>
-        </div>
-      </div>
+        </div> */}
 
       <VideoModal
         show={showModal}

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import Swal from 'sweetalert2';
 import {
   Plus,
   RefreshCw,
@@ -6,17 +7,25 @@ import {
   Upload,
   Link,
   Globe,
-  Edit,
-  Trash2,
   Smartphone,
   Wrench,
   Cpu,
   Loader2
 } from 'lucide-react';
-import { getChatbotSettings, updateChatbotSettings, ChatbotSettings } from '../services/chatbotJSService'; 
-import { getMyBotConfig, upsertMyBotConfig, BotConfig } from '../services/botConfigService'; 
+import { getChatbotSettings, ChatbotSettings } from '../services/chatbotJSService'; 
+import { getMyBotConfig } from '../services/botConfigService'; 
 import { listDocuments, uploadFileDocument, uploadTextDocument, uploadUrlDocument, uploadWebsite } from '../services/documentService';
-import { getSystemPrompt, updateSystemPrompt } from '../services/componentService';
+import { getSystemPrompt } from '../services/componentService';
+import { 
+  updateAccessoryFeatureConfig, 
+  updatePersonaConfig, 
+  updatePromptConfig, 
+  updateServiceFeatureConfig,
+  getPersonaConfig,
+  getPromptConfig,
+  getServiceFeatureConfig,
+  getAccessoryFeatureConfig
+} from '../services/userConfigService';
 
 // Interface cho state của form (đã có trong code của bạn)
 interface CombinedSettings extends ChatbotSettings {
@@ -25,6 +34,8 @@ interface CombinedSettings extends ChatbotSettings {
   enable_service_consulting: boolean;
   enable_accessory_consulting: boolean;
   stop_minutes: number;
+  persona_tone?: string;
+  prompt_language?: string;
 }
 
 // Interface cho tài liệu (đã có trong code của bạn)
@@ -36,19 +47,25 @@ interface Document {
 
 // --- Component ---
 
+type Order = Record<string, unknown>;
+type TabId = 'documents' | 'orders' | 'settings';
+type OrderTypeId = 'phone' | 'service' | 'component';
+
 const ChatbotManagement: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'documents' | 'orders' | 'settings'>('documents');
-  const [selectedOrderType, setSelectedOrderType] = useState<'phone' | 'service' | 'component'>('phone');
+  const [activeTab, setActiveTab] = useState<TabId>('documents');
+  const [selectedOrderType, setSelectedOrderType] = useState<OrderTypeId>('phone');
   
   // State cho dữ liệu
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [settings, setSettings] = useState<Partial<CombinedSettings>>({
     chatbot_name: '',
     chatbot_role: '',
     custom_prompt: '',
     enable_service_consulting: true,
     enable_accessory_consulting: true,
+    persona_tone: '',
+    prompt_language: 'vi',
     stop_minutes: 0,
   });
   
@@ -63,35 +80,82 @@ const ChatbotManagement: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Định nghĩa Tabs và Order Types (như cũ) ---
-  const tabs = [
+  const tabs: { id: TabId; label: string }[] = [
     { id: 'documents', label: 'Quản lý Tài liệu' },
     { id: 'orders', label: 'Quản lý Đơn hàng' },
     { id: 'settings', label: 'Cài đặt Hệ thống' },
   ];
 
-  const orderTypes = [
+  const orderTypes: { id: OrderTypeId; name: string; count: number; description: string; icon: React.ReactNode }[] = [
     { id: 'phone', name: 'Đơn Hàng Điện Thoại', count: 0, description: 'Quản lý các đơn hàng điện thoại', icon: <Smartphone size={24} /> },
     { id: 'service', name: 'Đơn Hàng Dịch Vụ', count: 0, description: 'Quản lý các đơn hàng dịch vụ sửa chữa', icon: <Wrench size={24} /> },
     { id: 'component', name: 'Đơn Hàng Linh Kiện', count: 0, description: 'Quản lý các đơn hàng linh kiện', icon: <Cpu size={24} /> },
   ];
   
 
-  // Hàm tải cài đặt (từ 3 nguồn)
+  // Hàm tải cài đặt (từ nhiều nguồn)
   const loadSettings = async () => {
     setIsLoadingSettings(true);
     try {
-      // Tải song song cả 3 cấu hình
-      const [settingsData, botConfigData, promptData] = await Promise.all([
+      // Tải song song tất cả các cấu hình
+      const results = await Promise.allSettled([
         getChatbotSettings(),
         getMyBotConfig(), // Mặc định lấy "me"
-        getSystemPrompt()    // Lấy prompt của bot linh kiện
+        getSystemPrompt(), // Lấy prompt của bot linh kiện
+        getPersonaConfig(), // Lấy persona config từ user-config
+        getPromptConfig(), // Lấy prompt config từ user-config
+        getServiceFeatureConfig(), // Lấy service feature config
+        getAccessoryFeatureConfig(), // Lấy accessory feature config
       ]);
 
+      const [
+        settingsResult,
+        botConfigResult,
+        promptResult,
+        personaResult,
+        userPromptResult,
+        serviceFeatureResult,
+        accessoryFeatureResult,
+      ] = results;
+
+      // Xử lý kết quả từ chatbot-js-agent
+      const settingsData = settingsResult.status === 'fulfilled' ? settingsResult.value : {};
+      
+      // Xử lý kết quả từ bot-config
+      const botConfigData = botConfigResult.status === 'fulfilled' ? botConfigResult.value : null;
+      
+      // Xử lý kết quả từ system-prompt (bot linh kiện)
+      const promptData = promptResult.status === 'fulfilled' ? promptResult.value : { prompt_content: '' };
+      
+      // Xử lý kết quả từ persona config
+      const personaData = personaResult.status === 'fulfilled' && personaResult.value ? personaResult.value : null;
+      
+      // Xử lý kết quả từ user prompt config
+      const userPromptData = userPromptResult.status === 'fulfilled' && userPromptResult.value ? userPromptResult.value : null;
+      
+      // Xử lý kết quả từ service feature
+      const serviceFeatureData = serviceFeatureResult.status === 'fulfilled' && serviceFeatureResult.value ? serviceFeatureResult.value : null;
+      
+      // Xử lý kết quả từ accessory feature
+      const accessoryFeatureData = accessoryFeatureResult.status === 'fulfilled' && accessoryFeatureResult.value ? accessoryFeatureResult.value : null;
+
+      // Gộp tất cả dữ liệu vào settings
       setSettings(prev => ({
         ...prev,
         ...settingsData,
-        stop_minutes: botConfigData.data?.stop_minutes || 0,
-        custom_prompt: promptData.prompt_content || '',
+        // Từ chatbot-js-agent (nếu có)
+        chatbot_name: personaData?.ai_name || settingsData.chatbot_name || prev.chatbot_name || '',
+        chatbot_role: personaData?.ai_role || settingsData.chatbot_role || prev.chatbot_role || '',
+        // Từ persona config - tone
+        persona_tone: personaData?.tone || prev.persona_tone || '',
+        // Từ bot-config
+        stop_minutes: (botConfigData && 'data' in botConfigData && botConfigData.data?.stop_minutes) || prev.stop_minutes || 0,
+        // Từ system-prompt (bot linh kiện) - ưu tiên user-config nếu có
+        custom_prompt: userPromptData?.custom_prompt || promptData.prompt_content || prev.custom_prompt || '',
+        // Từ user-config service feature
+        enable_service_consulting: serviceFeatureData?.enabled ?? prev.enable_service_consulting ?? true,
+        // Từ user-config accessory feature
+        enable_accessory_consulting: accessoryFeatureData?.enabled ?? prev.enable_accessory_consulting ?? true,
       }));
     } catch (error) {
       console.error("Lỗi khi tải cài đặt:", error);
@@ -137,7 +201,7 @@ const ChatbotManagement: React.FC = () => {
     }
   }, [selectedOrderType, activeTab]);
 
-  const handleSettingsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleSettingsChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setSettings(prev => ({ ...prev, [name]: value }));
   };
@@ -146,41 +210,117 @@ const ChatbotManagement: React.FC = () => {
     setSettings(prev => ({ ...prev, [name]: !prev[name] }));
   };
 
-  // Hàm lưu cài đặt (lưu vào 3 nguồn)
+  // Hàm lưu cài đặt (gọi tất cả API liên quan)
   const handleSaveSettings = async () => {
+    const personaRole = settings.chatbot_role?.trim();
+    const personaName = settings.chatbot_name?.trim();
+
+    if (!personaRole || !personaName) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Thiếu thông tin',
+        text: 'Vui lòng nhập đầy đủ tên chatbot và vai trò (persona).',
+      });
+      return;
+    }
+
+    const escapeHtml = (value?: string) =>
+      (value || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const truncate = (value?: string, len = 160) => {
+      const safe = escapeHtml(value);
+      return safe.length > len ? `${safe.slice(0, len)}...` : safe || '(trống)';
+    };
+
+    const summaryHtml = `
+      <div class="text-left text-sm space-y-3">
+        <div>
+          <p class="font-semibold">Persona</p>
+          <p>Role: <strong>${escapeHtml(personaRole)}</strong></p>
+          <p>Name: <strong>${escapeHtml(personaName)}</strong></p>
+          <p>Tone: <strong>${escapeHtml(settings.persona_tone || '(trống)')}</strong></p>
+        </div>
+        <div>
+          <p class="font-semibold">Prompt</p>
+          <p>Language: <strong>${escapeHtml(settings.prompt_language || 'vi')}</strong></p>
+          <p>Content: ${truncate(settings.custom_prompt)}</p>
+        </div>
+        <div>
+          <p class="font-semibold">Tính năng</p>
+          <p>Tư vấn dịch vụ: <strong>${settings.enable_service_consulting ? 'Bật' : 'Tắt'}</strong></p>
+          <p>Tư vấn phụ kiện: <strong>${settings.enable_accessory_consulting ? 'Bật' : 'Tắt'}</strong></p>
+        </div>
+      </div>
+    `;
+
+    const confirmation = await Swal.fire({
+      icon: 'question',
+      title: 'Xác nhận lưu cài đặt chatbot?',
+      html: summaryHtml,
+      showCancelButton: true,
+      confirmButtonText: 'Lưu',
+      cancelButtonText: 'Hủy',
+      focusCancel: true,
+      width: 600,
+    });
+
+    if (!confirmation.isConfirmed) return;
+
     setIsSavingSettings(true);
     try {
-      // 1. Payload cho API Chatbot JS (Tên, Icon, Role, Toggles)
-      const chatbotSettingsPayload: ChatbotSettings = {
-        chatbot_name: settings.chatbot_name,
-        chatbot_icon_url: settings.chatbot_icon_url,
-        chatbot_message_default: settings.chatbot_message_default,
-        chatbot_callout: settings.chatbot_callout,
-        chatbot_role: settings.chatbot_role, // Đã thêm
-        enable_service_consulting: settings.enable_service_consulting, // Đã thêm
-        enable_accessory_consulting: settings.enable_accessory_consulting, // Đã thêm
-      };
-      
-      // 2. Payload cho API Bot Zalo (Stop Minutes)
-      const botConfigPayload = {
-        stop_minutes: Number(settings.stop_minutes),
+      const personaPayload = {
+        role: personaRole,
+        name: personaName,
+        tone: settings.persona_tone?.trim() || undefined,
+        ai_role: personaRole,
+        ai_name: personaName,
       };
 
-      // 3. Payload cho API Bot Linh Kiện (Custom Prompt)
-      const promptPayload = settings.custom_prompt || '';
+      const userPromptPayload = {
+        system_prompt: settings.custom_prompt || '',
+        custom_prompt: settings.custom_prompt || '',
+        language: settings.prompt_language || 'vi',
+      };
 
-      // Gọi song song cả 3 API
+      const serviceFeaturePayload = {
+        enabled: Boolean(settings.enable_service_consulting),
+      };
+
+      const accessoryFeaturePayload = {
+        enabled: Boolean(settings.enable_accessory_consulting),
+      };
+
       await Promise.all([
-        updateChatbotSettings(chatbotSettingsPayload),
-        upsertMyBotConfig(botConfigPayload),
-        updateSystemPrompt(promptPayload)
+        // updateChatbotSettings(chatbotSettingsPayload),
+        // upsertMyBotConfig(botConfigPayload),
+        // updateSystemPrompt(settings.custom_prompt || ''),
+        updatePersonaConfig(personaPayload),
+        updatePromptConfig(userPromptPayload),
+        updateServiceFeatureConfig(serviceFeaturePayload),
+        updateAccessoryFeatureConfig(accessoryFeaturePayload),
       ]);
-      
-      alert('Đã lưu cài đặt!');
 
+      await Swal.fire({
+        icon: 'success',
+        title: 'Đã lưu cài đặt',
+        timer: 1800,
+        showConfirmButton: false,
+      });
     } catch (error) {
-      console.error("Lỗi khi lưu cài đặt:", error);
-      alert('Lưu cài đặt thất bại!');
+      console.error('Lỗi khi lưu cài đặt:', error);
+      const apiError = error as {
+        response?: { data?: { detail?: string; message?: string } };
+        message?: string;
+      };
+      const message =
+        apiError?.response?.data?.detail ||
+        apiError?.response?.data?.message ||
+        apiError?.message ||
+        'Lưu cài đặt thất bại!';
+      await Swal.fire({
+        icon: 'error',
+        title: 'Lưu thất bại',
+        text: message,
+      });
     } finally {
       setIsSavingSettings(false);
     }
@@ -326,7 +466,7 @@ const ChatbotManagement: React.FC = () => {
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
             >
               {tab.label}
             </button>
@@ -441,7 +581,7 @@ const ChatbotManagement: React.FC = () => {
                       ? 'border-blue-500 shadow-md'
                       : 'border-gray-200 hover:shadow-md'
                   }`}
-                  onClick={() => setSelectedOrderType(type.id as any)}
+                  onClick={() => setSelectedOrderType(type.id)}
                 >
                   <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center text-white mx-auto mb-4">
                     {type.icon}
@@ -521,6 +661,17 @@ const ChatbotManagement: React.FC = () => {
                       onChange={handleSettingsChange}
                     />
                   </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Persona Tone</label>
+                    <input
+                      type="text"
+                      name="persona_tone"
+                      placeholder="Ví dụ: thân thiện, chuyên nghiệp..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      value={settings.persona_tone || ''}
+                      onChange={handleSettingsChange}
+                    />
+                  </div>
                 </div>
 
                 {/* Custom Prompt (Bot Linh Kiện) */}
@@ -531,6 +682,18 @@ const ChatbotManagement: React.FC = () => {
                   <p className="text-xs text-gray-500 mb-2">
                     Prompt này chỉ áp dụng cho Bot Tư vấn Linh Kiện. Để trống để dùng prompt mặc định.
                   </p>
+                  <div className="mb-4">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Ngôn ngữ trả lời</label>
+                    <select
+                      name="prompt_language"
+                      value={settings.prompt_language || 'vi'}
+                      onChange={handleSettingsChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                    >
+                      <option value="vi">Tiếng Việt</option>
+                      <option value="en">Tiếng Anh</option>
+                    </select>
+                  </div>
                   <textarea
                     name="custom_prompt"
                     placeholder="Nhập prompt tùy chỉnh cho bot linh kiện..."

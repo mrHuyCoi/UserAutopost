@@ -39,7 +39,7 @@ export const SingleVoiceMode: React.FC = () => {
   const [subtitleProvider, setSubtitleProvider] = usePersistentState('subtitleProvider', 'edge');
   const [subtitleFont, setSubtitleFont] = usePersistentState('subtitleFont', 'DancingScript.ttf');
   const [subtitlePosition, setSubtitlePosition] = usePersistentState('subtitlePosition', 'Dưới (Recommend)');
-  const [customSubtitlePosition, setCustomSubtitlePosition] = usePersistentState('customSubtitlePosition', '0.0');
+  const [customSubtitlePosition, setCustomSubtitlePosition] = usePersistentState('customSubtitlePosition', '0');
   const [subtitleTextColor, setSubtitleTextColor] = usePersistentState('subtitleTextColor', '#FFFFFF');
   const [showTextColorPicker, setShowTextColorPicker] = usePersistentState('showTextColorPicker', false);
   const [subtitleFontSize, setSubtitleFontSize] = usePersistentState('subtitleFontSize', 80);
@@ -267,6 +267,10 @@ export const SingleVoiceMode: React.FC = () => {
       };
 
       const positionMap: { [key: string]: string } = {
+        'Trên': 'top',
+        'Giữa': 'center',
+        'Dưới (Recommend)': 'bottom',
+        'Tùy chỉnh': 'custom',
         'top': 'top',
         'center': 'center',
         'bottom': 'bottom',
@@ -292,7 +296,7 @@ export const SingleVoiceMode: React.FC = () => {
       const normalizedBgmType = bgmTypeMap[backgroundMusic] || 'random';
       const normalizedTtsServer = ttsServerMap[ttsServer] || ttsServer;
       const parsedCustomPosition = parseFloat(customSubtitlePosition);
-      const customPosition = Number.isFinite(parsedCustomPosition) ? parsedCustomPosition : 70;
+      const customPosition = Number.isFinite(parsedCustomPosition) ? parsedCustomPosition : 0;
 
       const requestBody = {
         video_subject: videoTopic,
@@ -310,28 +314,28 @@ export const SingleVoiceMode: React.FC = () => {
           duration: 0
         }],
         video_language: scriptLanguage === 'Tiếng Việt' ? 'Vietnamese' : 'English',
+        tts_server: normalizedTtsServer,
         voice_name: ttsVoice,
         voice_volume: voiceVolume,
-        tts_server: normalizedTtsServer,
         voice_rate: voiceSpeed,
         bgm_type: normalizedBgmType,
         bgm_file: "",
         bgm_volume: backgroundMusicVolume,
         subtitle_enabled: enableSubtitles,
-        type_subtitle: subtitleType,
-        subtitle_provider: subtitleProvider,
         subtitle_position: normalizedSubtitlePosition,
         custom_position: customPosition,
         font_name: subtitleFont,
         text_fore_color: subtitleTextColor,
         text_background_color: true,
+        type_subtitle: subtitleType,
         font_size: subtitleFontSize,
         stroke_color: subtitleBorderColor,
         stroke_width: subtitleBorderWidth,
         n_threads: 6,
+        subtitle_provider: subtitleProvider,
         paragraph_number: 1,
-        gemini_key: geminiApiKey || '',
-        openai_key: openaiApiKey || '',
+        gemini_key: geminiApiKey || null,
+        openai_key: openaiApiKey || null,
         speech_key: azureApiKey || '',
         speech_region: azureRegion || ''
       };
@@ -757,10 +761,11 @@ export const SingleVoiceMode: React.FC = () => {
                       id="customSubtitlePosition"
                       min="0"
                       max="100"
+                      step="0.1"
                       value={customSubtitlePosition}
                       onChange={(e) => setCustomSubtitlePosition(e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                      placeholder="85"
+                      placeholder="0"
                     />
                   </div>
                 )}
