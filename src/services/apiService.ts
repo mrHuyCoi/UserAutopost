@@ -8,11 +8,11 @@ interface ApiGetOptions extends RequestInit {
 }
 
 const apiClient = axios.create({
-    baseURL: '/api/v1',
-    headers: {
-        'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true'
-    },
+  baseURL: `${API_BASE_URL}/api/v1`,
+  headers: {
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+  },
 });
 
 export const getAuthToken = () => {
@@ -418,7 +418,7 @@ export const resetChatbotHistory = async () => {
 
 export const getMyApiKey = async (): Promise<{ api_key: string; scopes: string[]; is_active: boolean }> => {
     try {
-        const response = await apiClient.get('/chatbot-subscriptions/my-api-key');
+        const response = await apiClient.get<{ api_key: string; scopes: string[]; is_active: boolean }>('/chatbot-subscriptions/my-api-key');
         return response.data;
     } catch (error) {
         console.error("Error fetching API key:", error);
