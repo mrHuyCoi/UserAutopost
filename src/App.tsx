@@ -194,7 +194,7 @@ function App() {
           } 
         />
         <Route 
-          path="/api-integration" 
+          path="/integration" 
           element={
             <ProtectedRoute>
               <ApiIntegrationPage />

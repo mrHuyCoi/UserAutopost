@@ -586,7 +586,7 @@ const ChannelManagement: React.FC = () => {
     { id: 'zalo-oa', label: 'Zalo OA' },
     { id: 'messenger', label: 'Messenger' },
     { id: 'conversations', label: 'Hội thoại' },
-    { id: 'settings', label: 'Cài đặt' }
+    // { id: 'settings', label: 'Cài đặt' }
   ];
 
   return (

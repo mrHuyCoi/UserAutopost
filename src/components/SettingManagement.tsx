@@ -1,9 +1,10 @@
 // src/components/SettingsManagement.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Plus, Edit, Trash2, Save, Upload, MessageCircle, X, FileUp, FileDown, RefreshCw
+  Plus, Edit, Trash2, Save, MessageCircle, X, FileUp, FileDown, RefreshCw
 } from 'lucide-react';
 import { faqMobileService, FaqItem, FaqCreate } from '../services/faqMobileService';
+import { getStoreInfo as getStoreInfoApi, saveStoreInfo as saveStoreInfoApi } from '../services/documentService';
 
 type TabKey = 'faq' | 'store-info' | 'bot-control';
 
@@ -41,6 +42,16 @@ const mapApiToRow = (it: FaqItem): FAQRow => ({
   images: it.image ? it.image.split(',').map(s => s.trim()).filter(Boolean) : [],
 });
 
+const getErrorMessage = (err: unknown, fallback: string) => {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return fallback;
+  }
+};
+
 const SettingsManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>('faq');
 
@@ -77,6 +88,9 @@ const SettingsManagement: React.FC = () => {
     zaloOA: true,
     messenger: true
   });
+  const [storeImageUrl, setStoreImageUrl] = useState(storeInfo.image);
+  const [storeImageFileName, setStoreImageFileName] = useState('');
+  const [savingStoreInfo, setSavingStoreInfo] = useState(false);
 
   // ===== Helpers =====
   const resetForm = () => {
@@ -104,6 +118,33 @@ const SettingsManagement: React.FC = () => {
     setShowFAQForm(true);
   };
 
+  // ===== Store Info load from API =====
+  useEffect(() => {
+    const loadStoreInfoFromApi = async () => {
+      try {
+        const apiData = await getStoreInfoApi();
+        const mapped: StoreInfo = {
+          name: apiData.store_name || '',
+          address: apiData.store_address || '',
+          phone: apiData.store_phone || '',
+          email: apiData.store_email || '',
+          website: apiData.store_website || '',
+          facebook: apiData.store_facebook || '',
+          image: apiData.store_image || '',
+          map: apiData.store_address_map || '',
+          additional: apiData.info_more || '',
+        };
+        setStoreInfo(mapped);
+        setStoreImageUrl(mapped.image);
+        setStoreImageFileName('');
+      } catch (err: unknown) {
+        console.error('Không thể tải thông tin cửa hàng:', err);
+      }
+    };
+
+    loadStoreInfoFromApi();
+  }, []);
+
   // ===== API actions =====
   const loadFaqs = async () => {
     setLoading(true);
@@ -111,8 +152,8 @@ const SettingsManagement: React.FC = () => {
     try {
       const data = await faqMobileService.getAllFaqs();
       setFaqs(data.map(mapApiToRow));
-    } catch (e: any) {
-      setError(e?.message || 'Không tải được danh sách FAQ');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Không tải được danh sách FAQ'));
     } finally {
       setLoading(false);
     }
@@ -148,8 +189,8 @@ const SettingsManagement: React.FC = () => {
       setShowFAQForm(false);
       resetForm();
       await loadFaqs();
-    } catch (e: any) {
-      setError(e?.message || 'Không lưu được FAQ');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Không lưu được FAQ'));
     } finally {
       setSaving(false);
     }
@@ -162,8 +203,8 @@ const SettingsManagement: React.FC = () => {
     try {
       await faqMobileService.deleteFaq(id);
       await loadFaqs();
-    } catch (e: any) {
-      setError(e?.message || 'Không xóa được FAQ');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Không xóa được FAQ'));
     } finally {
       setSaving(false);
     }
@@ -176,8 +217,8 @@ const SettingsManagement: React.FC = () => {
     try {
       await faqMobileService.deleteAllFaqs();
       await loadFaqs();
-    } catch (e: any) {
-      setError(e?.message || 'Không xóa được tất cả FAQ');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Không xóa được tất cả FAQ'));
     } finally {
       setSaving(false);
     }
@@ -190,8 +231,8 @@ const SettingsManagement: React.FC = () => {
       await faqMobileService.importFaqFromFile(file);
       alert('Import thành công!');
       await loadFaqs();
-    } catch (e: any) {
-      setError(e?.message || 'Import thất bại');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Import thất bại'));
     } finally {
       setSaving(false);
     }
@@ -208,8 +249,8 @@ const SettingsManagement: React.FC = () => {
       a.download = 'faqs.xlsx';
       a.click();
       URL.revokeObjectURL(url);
-    } catch (e: any) {
-      setError(e?.message || 'Export thất bại');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Export thất bại'));
     } finally {
       setSaving(false);
     }
@@ -225,10 +266,59 @@ const SettingsManagement: React.FC = () => {
     setStoreInfo(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveStoreInfo = () => {
-    // TODO: Nếu có API riêng, gọi ở đây
-    console.log('Lưu StoreInfo:', storeInfo);
-    alert('Thông tin cửa hàng đã được lưu!');
+  const handleStoreImageUrlChange = (value: string) => {
+    setStoreImageUrl(value);
+    setStoreImageFileName('');
+    handleStoreInfoChange('image', value);
+  };
+
+  const handleStoreImageUpload: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const file = e.target.files?.[0];
+    e.currentTarget.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Vui lòng chọn tệp hình ảnh hợp lệ.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Ảnh tối đa 2MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setStoreImageFileName(file.name);
+      setStoreImageUrl('');
+      handleStoreInfoChange('image', base64);
+    };
+    reader.onerror = () => {
+      alert('Không đọc được tệp ảnh, vui lòng thử lại.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveStoreInfo = async () => {
+    const payload = {
+      store_name: storeInfo.name.trim(),
+      store_address: storeInfo.address.trim(),
+      store_phone: storeInfo.phone.trim(),
+      store_email: storeInfo.email.trim(),
+      store_website: storeInfo.website.trim(),
+      store_facebook: storeInfo.facebook.trim(),
+      store_address_map: storeInfo.map.trim(),
+      store_image: storeInfo.image.trim(),
+      info_more: storeInfo.additional.trim(),
+    };
+    setSavingStoreInfo(true);
+    try {
+      await saveStoreInfoApi(payload);
+      alert('Thông tin cửa hàng đã được lưu!');
+      setStoreImageFileName('');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err, 'Không thể lưu thông tin cửa hàng, vui lòng thử lại.'));
+    } finally {
+      setSavingStoreInfo(false);
+    }
   };
 
   const handleBotSettingChange = (platform: keyof BotSettings, value: boolean) => {
@@ -551,7 +641,7 @@ const SettingsManagement: React.FC = () => {
             <div>
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Mạng Xã Hội & Thông Tin Bổ Sung</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Facebook</label>
                   <input
                     type="text"
@@ -564,10 +654,38 @@ const SettingsManagement: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hình Ảnh Cửa Hàng (URL)</label>
                   <input
                     type="text"
-                    value={storeInfo.image}
-                    onChange={(e) => handleStoreInfoChange('image', e.target.value)}
+                    value={storeImageUrl}
+                    onChange={(e) => handleStoreImageUrlChange(e.target.value)}
+                    placeholder="Dán URL ảnh cửa hàng"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  <div className="mt-3 space-y-2">
+                    <label className="block text-xs font-medium text-gray-600">Upload Ảnh Cửa Hàng</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleStoreImageUpload}
+                      className="block w-full text-sm text-gray-700
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-blue-50 file:text-blue-700
+                        hover:file:bg-blue-100"
+                    />
+                    {storeImageFileName && (
+                      <p className="text-xs text-gray-500">Đã chọn: {storeImageFileName}</p>
+                    )}
+                    {storeInfo.image && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-2">Xem trước</p>
+                        <img
+                          src={storeInfo.image}
+                          alt="store"
+                          className="w-full max-h-48 object-cover rounded-lg border"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Địa Chỉ Bản Đồ</label>
@@ -595,7 +713,8 @@ const SettingsManagement: React.FC = () => {
               </button>
               <button
                 onClick={handleSaveStoreInfo}
-                className="flex items-center gap-2 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
+                disabled={savingStoreInfo}
+                className="flex items-center gap-2 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <Save size={16} />
                 Lưu Thông Tin
