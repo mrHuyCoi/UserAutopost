@@ -3,11 +3,12 @@ import { getAuthToken } from './apiService'; // Giả định bạn có file nà
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.161:8000';
 
-const getHeaders = (isFormData = false) => {
+const getHeaders = (isFormData = false): Record<string, string> => {
   const token = getAuthToken();
-  const headers: any = {
-    'Authorization': `Bearer ${token}`,
-  };
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   if (!isFormData) {
     headers['Content-Type'] = 'application/json';
   }
@@ -104,4 +105,36 @@ export const uploadWebsite = async (website_url: string, source?: string) => {
     headers: getHeaders(true), // true = FormData
   });
   return response.data; // Trả về task_id
+};
+
+export interface StoreInfoPayload {
+  store_name: string;
+  store_address: string;
+  store_phone: string;
+  store_email: string;
+  store_website: string;
+  store_facebook: string;
+  store_address_map: string;
+  store_image: string;
+  info_more: string;
+}
+
+export const getStoreInfo = async (): Promise<StoreInfoPayload> => {
+  const response = await axios.get(
+    `${API_BASE_URL}/api/v1/documents/store-info`,
+    { headers: getHeaders() },
+  );
+  return response.data as StoreInfoPayload;
+};
+
+export const saveStoreInfo = async (payload: StoreInfoPayload) => {
+  const formData = new FormData();
+  formData.append('store_info', JSON.stringify(payload));
+
+  const response = await axios.post(
+    `${API_BASE_URL}/api/v1/documents/store-info`,
+    formData,
+    { headers: getHeaders(true) },
+  );
+  return response.data;
 };

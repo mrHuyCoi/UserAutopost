@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { ServiceDetail, ServiceDetailCreate } from '../../hooks/useServiceDetails';
 import { DeviceBrand } from '../../../../types/deviceBrand';
-import { warrantyService, WarrantyService } from '../../../../services/warrantyService';
 import { brandService } from '../../../../services/brandService';
 import deviceBrandService from '../../../../services/deviceBrandService';
 
@@ -44,26 +43,22 @@ const AddServiceDetailForm: React.FC<AddServiceDetailFormProps> = ({
   // === State Dữ Liệu Dropdown (Lấy từ API) ===
   const [productTypes, setProductTypes] = useState<string[]>([]);
   const [deviceBrands, setDeviceBrands] = useState<DeviceBrand[]>([]);
-  const [warranties, setWarranties] = useState<WarrantyService[]>([]);
   
   // === State Tải Dữ Liệu ===
   const [isLoadingProductTypes, setIsLoadingProductTypes] = useState(false);
   const [isLoadingDeviceBrands, setIsLoadingDeviceBrands] = useState(false);
-  const [isLoadingWarranties, setIsLoadingWarranties] = useState(false);
   // const [isLoadingDeviceTypes, setIsLoadingDeviceTypes] = useState(false); // (Bị comment ra vì đang dùng mock)
 
   // "Add new" state
   const [isAddingProductType, setIsAddingProductType] = useState(false);
   const [newProductType, setNewProductType] = useState("");
-  const [isAddingWarranty, setIsAddingWarranty] = useState(false);
-  const [newWarranty, setNewWarranty] = useState("");
 
  useEffect(() => {
     const loadProductTypes = async () => {
       setIsLoadingProductTypes(true);
       try {
         const data = await brandService.getUniqueBrandNames(serviceId);
-        const names = data.map((item: any) => item.name);
+        const names = data.map((item: { name: string }) => item.name);
         setProductTypes(names);
         if (names.length > 0) {
           setFormData(prev => ({ ...prev, name: names[0] }));
@@ -85,23 +80,6 @@ const AddServiceDetailForm: React.FC<AddServiceDetailFormProps> = ({
       finally { setIsLoadingDeviceBrands(false); }
     };
     loadDeviceBrands();
-  }, []);
-
-  // --- 3. Tải "Bảo hành" từ warrantyService ---
-  useEffect(() => {
-    const loadWarranties = async () => {
-      setIsLoadingWarranties(true);
-      try {
-        const data = await warrantyService.getWarrantyServices();
-        setWarranties(data || []);
-        const defaultWarranty = data.find(w => w.value === '0 tháng') || data[0];
-        if (defaultWarranty) {
-          setFormData(prev => ({ ...prev, warranty: defaultWarranty.value }));
-        }
-      } catch (err) { console.error(err); } 
-      finally { setIsLoadingWarranties(false); }
-    };
-    loadWarranties();
   }, []);
 
   // --- NÂNG CẤP: Lọc "Loại máy" từ danh sách SP hiện có ---
@@ -172,42 +150,6 @@ const AddServiceDetailForm: React.FC<AddServiceDetailFormProps> = ({
     setNewProductType("");
   };
 
-  const handleWarrantyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    if (e.target.value === '__ADD_NEW__') {
-      setIsAddingWarranty(true);
-    } else {
-      handleChange(e);
-    }
-  };
-
-  const handleConfirmNewWarranty = async () => {
-    if (!newWarranty) {
-      setIsAddingWarranty(false);
-      return;
-    }
-    
-    const existing = warranties.find(w => w.value === newWarranty);
-    if (existing) {
-       setFormData(prev => ({ ...prev, warranty: existing.value }));
-       setIsAddingWarranty(false);
-       setNewWarranty("");
-       return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const createdWarranty = await warrantyService.createWarrantyService({ value: newWarranty });
-      setWarranties(prev => [...prev, createdWarranty]);
-      setFormData(prev => ({ ...prev, warranty: createdWarranty.value }));
-    } catch (err: any) {
-      setError(`Lỗi tạo bảo hành: ${err.message}`);
-    } finally {
-      setIsAddingWarranty(false);
-      setNewWarranty("");
-      setIsSubmitting(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -230,8 +172,9 @@ const AddServiceDetailForm: React.FC<AddServiceDetailFormProps> = ({
     try {
       await onAdd(payload);
       onSuccess();
-    } catch (err: any) {
-      setError(err.message || "Đã xảy ra lỗi khi thêm sản phẩm.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Đã xảy ra lỗi khi thêm sản phẩm.';
+      setError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -353,21 +296,14 @@ const AddServiceDetailForm: React.FC<AddServiceDetailFormProps> = ({
             {/* Bảo hành */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Bảo hành</label>
-              {isAddingWarranty ? (
-                 <div className="flex gap-1">
-                  <input type="text" value={newWarranty} onChange={(e) => setNewWarranty(e.target.value)} placeholder="VD: 24 tháng" className="w-full px-3 py-3 lg:py-2 border border-blue-500 rounded-lg text-sm" autoFocus />
-                  <button type="button" onClick={handleConfirmNewWarranty} className="p-2 bg-blue-600 text-white rounded-lg" disabled={isSubmitting}><Check size={16}/></button>
-                  <button type="button" onClick={() => setIsAddingWarranty(false)} className="p-2 bg-gray-200 text-gray-700 rounded-lg" disabled={isSubmitting}><X size={16}/></button>
-                </div>
-              ) : (
-                <select name="warranty" value={formData.warranty} onChange={handleWarrantyChange} className="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-lg text-sm" disabled={isLoadingWarranties}>
-                  <option value="" disabled>{isLoadingWarranties ? "Đang tải..." : "-- Chọn bảo hành --"}</option>
-                  {warranties.map(w => (
-                    <option key={w.id} value={w.value}>{w.value}</option>
-                  ))}
-                  <option value="__ADD_NEW__" className="text-blue-600 font-medium">... Thêm bảo hành mới ...</option>
-                </select>
-              )}
+              <input
+                type="text"
+                name="warranty"
+                value={formData.warranty}
+                onChange={handleChange}
+                placeholder="VD: 12 tháng, 24 tháng..."
+                className="w-full px-3 py-3 lg:py-2 border border-gray-300 rounded-lg text-sm"
+              />
             </div>
           </div>
 
