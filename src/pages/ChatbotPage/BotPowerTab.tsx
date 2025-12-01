@@ -36,7 +36,9 @@ const BotPowerTab: React.FC = () => {
         if (typeof payload.status === 'string') return payload.status;
         if (typeof payload.is_active === 'boolean') return payload.is_active ? 'active' : 'stopped';
       }
-    } catch {}
+    } catch {
+      return 'unknown';
+    }
     return 'unknown';
   };
 
@@ -46,10 +48,9 @@ const BotPowerTab: React.FC = () => {
   const loadPlatformControls = async () => {
     setPlatformLoading(true);
     try {
+      const headers = await getAuthHeader();
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/chatbot-control/platforms`, {
-        headers: {
-          ...getAuthHeader(),
-        },
+        headers,
       });
       if (!res.ok) throw new Error('Load platform controls failed');
       const data = await res.json().catch(() => ({}));
@@ -68,10 +69,11 @@ const BotPowerTab: React.FC = () => {
   const setPlatformEnabled = async (platform: 'zalo' | 'zalo_oa' | 'messenger', enabled: boolean) => {
     setPlatformBusy(platform);
     try {
+      const headers = await getAuthHeader();
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/chatbot-control/platforms`, {
         method: 'PUT',
         headers: {
-          ...getAuthHeader(),
+          ...headers,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ platform, enabled }),
@@ -118,10 +120,11 @@ const BotPowerTab: React.FC = () => {
       }
 
       // Gọi API để lưu ưu tiên
+      const headers = await getAuthHeader();
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/zalo/chatbot-priority`, {
         method: 'PUT',
         headers: {
-          ...getAuthHeader(),
+          ...headers,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ priority }),
@@ -145,8 +148,9 @@ const BotPowerTab: React.FC = () => {
     // via backend - Mobile
     setMobileBotLoading(true);
     try {
+      const headers = await getAuthHeader();
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/chatbot-control/mobile/status`, {
-        headers: getAuthHeader(),
+        headers,
       });
       const data = await res.json().catch(() => ({}));
       currentMobileStatus = normalizeStatus(data);
@@ -160,8 +164,9 @@ const BotPowerTab: React.FC = () => {
     // via backend - Custom
     setCustomBotLoading(true);
     try {
+      const headers = await getAuthHeader();
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/chatbot-control/custom/status`, {
-        headers: getAuthHeader(),
+        headers,
       });
       const data = await res.json().catch(() => ({}));
       currentCustomStatus = normalizeStatus(data);
@@ -181,9 +186,10 @@ const BotPowerTab: React.FC = () => {
     if (!customerId) return;
     setMobileBotLoading(true);
     try {
+      const headers = await getAuthHeader();
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/chatbot-control/mobile/stop`, {
         method: 'POST',
-        headers: getAuthHeader(),
+        headers,
       });
       if (!res.ok) throw new Error('Stop mobile bot failed');
       setMessage({ type: 'success', text: 'Đã tạm dừng Chatbot Mobile' });
@@ -203,9 +209,10 @@ const BotPowerTab: React.FC = () => {
     if (!customerId) return;
     setMobileBotLoading(true);
     try {
+      const headers = await getAuthHeader();
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/chatbot-control/mobile/start`, {
         method: 'POST',
-        headers: getAuthHeader(),
+        headers,
       });
       if (!res.ok) throw new Error('Start mobile bot failed');
       setMessage({ type: 'success', text: 'Đã kích hoạt Chatbot Mobile' });
@@ -225,9 +232,10 @@ const BotPowerTab: React.FC = () => {
     if (!customerId) return;
     setCustomBotLoading(true);
     try {
+      const headers = await getAuthHeader();
       const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/chatbot-control/custom`, {
         method: 'POST',
-        headers: getAuthHeader(),
+        headers,
         body: JSON.stringify({ command })
       });
       if (!res.ok) throw new Error('Control custom bot failed');

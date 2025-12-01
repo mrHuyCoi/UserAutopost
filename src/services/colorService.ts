@@ -106,13 +106,13 @@ export const colorService = {
     return data.data;
   },
 
-  async getColorToSelect(): Promise<Color[]> {
+  async getColorToSelect(): Promise<Array<{ id: string; name: string }>> {
     const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/api/v1/colors`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/colors/to-select`, {
       headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
     });
     if (!response.ok) return [];
     const data = await response.json();
-    return data.data;
+    return data.data || [];
   },
 };

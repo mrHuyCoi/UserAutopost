@@ -1,3 +1,4 @@
+import { ColorByDevice } from '../types/color';
 import { DeviceInfo } from '../types/deviceTypes';
 import { getAuthToken } from './apiService';
 
@@ -37,6 +38,16 @@ export const deviceInfoService = {
       headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
     });
     if (!response.ok) throw new Error('Failed to fetch device info');
+    const data = await response.json();
+    return data.data;
+  },
+
+  async getColorByDeviceInfoId(id: string): Promise<ColorByDevice[]> {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/${id}/colors`, {
+      headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
+    });
+    if (!response.ok) throw new Error('Failed to fetch colors for device info');
     const data = await response.json();
     return data.data;
   },
@@ -216,5 +227,15 @@ export const deviceInfoService = {
     a.click();
     a.remove();
     window.URL.revokeObjectURL(url);
+  },
+
+  async getDeviceInfosToSelect(): Promise<Array<{ id: string; model: string }>> {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/api/v1/device-infos/to-select`, {
+      headers: { 'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER },
+    });
+    if (!response.ok) throw new Error('Failed to fetch device infos for selection');
+    const data = await response.json();
+    return data.data || [];
   },
 };

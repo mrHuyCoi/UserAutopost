@@ -22,11 +22,6 @@ export interface Conversation {
   unread: number;
   channel: string;
   messages: Message[];
-  // Metadata for sending messages
-  thread_id?: string;
-  peer_id?: string;
-  conversation_id?: string; // For Zalo OA
-  account_id?: string; // Account ID for the channel
 }
 
 export interface FAQItem {
@@ -39,3 +34,5 @@ export interface FAQItem {
 }
 
 export type TabType = 'zalo' | 'zalo-oa' | 'messenger' | 'conversations' | 'settings';
+
+

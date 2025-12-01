@@ -19,6 +19,74 @@ export const getAuthToken = () => {
     return localStorage.getItem('auth_token');
 };
 
+// Cache for API key
+let cachedApiKey: string | null = null;
+let apiKeyPromise: Promise<string | null> | null = null;
+
+// Get API key with caching
+export const getApiKey = async (): Promise<string | null> => {
+  // Return cached key if available
+  if (cachedApiKey) {
+    return cachedApiKey;
+  }
+
+  // If there's already a request in progress, return that promise
+  if (apiKeyPromise) {
+    return apiKeyPromise;
+  }
+
+  // Create new request
+  apiKeyPromise = (async () => {
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        return null;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/v1/chatbot-subscriptions/my-api-key`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          ...NGROK_SKIP_HEADER,
+        },
+      });
+
+      if (!response.ok) {
+        // If 401, don't cache null - let it retry
+        if (response.status === 401) {
+          return null;
+        }
+        // For other errors, cache null to avoid repeated failed requests
+        cachedApiKey = null;
+        return null;
+      }
+
+      const data = await response.json();
+      if (data.api_key && data.is_active) {
+        cachedApiKey = data.api_key;
+        return data.api_key;
+      }
+
+      cachedApiKey = null;
+      return null;
+    } catch (error) {
+      console.error('Error fetching API key:', error);
+      cachedApiKey = null;
+      return null;
+    } finally {
+      apiKeyPromise = null;
+    }
+  })();
+
+  return apiKeyPromise;
+};
+
+// Clear cached API key (useful when regenerating)
+export const clearApiKeyCache = () => {
+  cachedApiKey = null;
+  apiKeyPromise = null;
+};
+
 // Helper function to handle token expiry
 const handleTokenExpiry = () => {
     localStorage.removeItem('auth_token');
@@ -28,11 +96,18 @@ const handleTokenExpiry = () => {
 };
 
 apiClient.interceptors.request.use(
-    (config) => {
+    async (config) => {
         const token = getAuthToken();
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        
+        // Add X-Api-Key header
+        const apiKey = await getApiKey();
+        if (apiKey) {
+            config.headers['X-Api-Key'] = apiKey;
+        }
+        
         return config;
     },
     (error) => {
@@ -57,11 +132,19 @@ apiClient.interceptors.response.use(
     }
 );
 
-export const getAuthHeader = (isFormData = false): HeadersInit => {
+export const getAuthHeader = async (isFormData = false): Promise<HeadersInit> => {
   const token = getAuthToken();
   const headers: HeadersInit = {
-    'Authorization': `Bearer ${token}`,...NGROK_SKIP_HEADER
+    'Authorization': `Bearer ${token}`,
+    ...NGROK_SKIP_HEADER,
   };
+  
+  // Add X-Api-Key header if available
+  const apiKey = await getApiKey();
+  if (apiKey) {
+    headers['X-Api-Key'] = apiKey;
+  }
+  
   if (!isFormData) {
     headers['Content-Type'] = 'application/json';
   }
@@ -72,14 +155,13 @@ export const apiGet = async <T>(endpoint: string, options: ApiGetOptions = {}): 
     const token = getAuthToken();
     if (!token) throw new Error('Unauthorized');
 
+    const headers = await getAuthHeader();
     const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
         ...options,
-        // headers: getAuthHeader()
         headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        'ngrok-skip-browser-warning': 'true'
-    },
+            ...headers,
+            ...options.headers,
+        },
     });
 
     if (!response.ok) {
@@ -109,9 +191,10 @@ export const apiPost = async <T>(endpoint: string, data: any): Promise<T> => {
   const token = getAuthToken();
   if (!token) throw new Error('Unauthorized');
 
+  const headers = await getAuthHeader();
   const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
     method: 'POST',
-    headers: getAuthHeader(),
+    headers,
     body: JSON.stringify(data)
   });
 
@@ -133,9 +216,10 @@ export const apiPostForm = async <T>(endpoint: string, formData: FormData): Prom
     const token = getAuthToken();
     if (!token) throw new Error('Unauthorized');
 
+    const headers = await getAuthHeader(true); // Pass true for FormData
     const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
         method: 'POST',
-        headers: getAuthHeader(true), // Pass true for FormData
+        headers,
         body: formData
     });
 
@@ -158,9 +242,10 @@ export const apiPut = async <T>(endpoint: string, data: any): Promise<T> => {
   const token = getAuthToken();
   if (!token) throw new Error('Unauthorized');
 
+  const headers = await getAuthHeader();
   const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
     method: 'PUT',
-    headers: getAuthHeader(),
+    headers,
     body: JSON.stringify(data)
   });
 
@@ -182,9 +267,10 @@ export const apiDelete = async <T>(endpoint: string, data?: any): Promise<T> => 
   const token = getAuthToken();
   if (!token) throw new Error('Unauthorized');
 
+  const headers = await getAuthHeader();
   const config: RequestInit = {
     method: 'DELETE',
-    headers: getAuthHeader(),
+    headers,
   };
 
   if (data) {
@@ -221,14 +307,10 @@ export const apiPostFormData = async <T>(endpoint: string, formData: FormData): 
   const token = getAuthToken();
   if (!token) throw new Error('Unauthorized');
 
-  // const headers: HeadersInit = {
-  //   'Authorization': `Bearer ${token}`,
-  // };
-
+  const headers = await getAuthHeader(true);
   const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
     method: 'POST',
-    // headers,
-    headers: getAuthHeader(true),
+    headers,
     body: formData
   });
 
@@ -254,11 +336,9 @@ export const apiGetBlob = async (endpoint: string): Promise<Blob> => {
   console.log('📤 Endpoint:', endpoint);
   console.log('🌐 Full URL:', `${API_BASE_URL}/api/v1${endpoint}`);
 
+  const headers = await getAuthHeader();
   const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
-    // headers: {
-    //   'Authorization': `Bearer ${token}`,
-    // }
-    headers: getAuthHeader()
+    headers
   });
 
   console.log('📥 Response Status:', response.status);
@@ -302,9 +382,10 @@ export const apiPostAndGetBlob = async (endpoint: string, data: any): Promise<Bl
   const token = getAuthToken();
   if (!token) throw new Error('Unauthorized');
 
+  const headers = await getAuthHeader();
   const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
     method: 'POST',
-    headers: getAuthHeader(),
+    headers,
     body: JSON.stringify(data)
   });
 
@@ -344,9 +425,10 @@ export const chatbotStream = async (
     if (extra?.image_base64) body.image_base64 = extra.image_base64;
     if (extra?.thread_id) body.thread_id = extra.thread_id;
 
+    const headers = await getAuthHeader();
     const response = await fetch(`${API_BASE_URL}/api/v1/chatbot/chat`, {
       method: 'POST',
-      headers: getAuthHeader(),
+      headers,
       body: JSON.stringify(body),
     });
 
@@ -439,9 +521,10 @@ export const apiPatch = async <T>(endpoint: string, data: any): Promise<T> => {
   const token = getAuthToken();
   if (!token) throw new Error('Unauthorized');
 
+  const headers = await getAuthHeader();
   const response = await fetch(`${API_BASE_URL}/api/v1${endpoint}`, {
     method: 'PATCH',
-    headers: getAuthHeader(),
+    headers,
     body: JSON.stringify(data),
   });
 

@@ -559,9 +559,9 @@ curl -X POST ${API_BASE_URL}/api/v1/chatbot/chat \\
 
     // --- RENDER COMPONENT ---
     return (
-        <div className="container mx-auto p-4 sm:p-6 lg:p-8 text-white">
-            <h1 className="text-3xl font-bold mb-2">Tích hợp API</h1>
-            <p className="text-gray-400 mb-6">Tích hợp chatbot của chúng tôi vào website của bạn.</p>
+        <div className="max-w-7xl mx-auto">
+            <h1 className="text-3xl font-bold mb-2 text-gray-900">Tích hợp API</h1>
+            <p className="text-gray-600 mb-6">Tích hợp chatbot của chúng tôi vào website của bạn.</p>
             
             {/* Phần hiển thị chính */}
             <div className="space-y-8">
@@ -640,15 +640,15 @@ curl -X POST ${API_BASE_URL}/api/v1/chatbot/chat \\
                 {apiKey && (
                     <div className="space-y-8">
                         <div>
-                            <h2 className="text-xl font-semibold mb-2">1. Hướng dẫn cài đặt</h2>
+                            <h2 className="text-xl font-semibold mb-2 text-gray-900">1. Hướng dẫn cài đặt</h2>
                             <div className="bg-gray-900 p-4 rounded-lg">
                                 <pre className="whitespace-pre-wrap text-sm text-gray-300">{installationInstructions}</pre>
                             </div>
                         </div>
 
                         <div>
-                            <h2 className="text-xl font-semibold mb-2">2. Mã nhúng Chat Widget</h2>
-                            <p className="text-gray-400 mb-2">Sao chép và dán đoạn mã này vào trang web của bạn.</p>
+                            <h2 className="text-xl text-gray-900 font-semibold mb-2">2. Mã nhúng Chat Widget</h2>
+                            <p className="text-gray-600 mb-2">Sao chép và dán đoạn mã này vào trang web của bạn.</p>
                             <CodeSnippet
                                 title="HTML & JavaScript cho Chat Widget"
                                 code={scriptSnippet}
@@ -657,8 +657,8 @@ curl -X POST ${API_BASE_URL}/api/v1/chatbot/chat \\
                         </div>
 
                         <div>
-                            <h2 className="text-xl font-semibold mb-2">3. Ví dụ kiểm tra API (cURL)</h2>
-                             <p className="text-gray-400 mb-2">Sử dụng cURL trong terminal để kiểm tra API hoạt động.</p>
+                            <h2 className="text-xl font-semibold mb-2 text-gray-900">3. Ví dụ kiểm tra API (cURL)</h2>
+                             <p className="text-gray-600 mb-2">Sử dụng cURL trong terminal để kiểm tra API hoạt động.</p>
                             <CodeSnippet
                                 title="Kiểm tra API trực tiếp với cURL"
                                 code={curlSnippet}

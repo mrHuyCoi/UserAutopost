@@ -35,7 +35,7 @@ const formatTime = (timeStr?: string | number | null): string => {
 /**
  * Format ngày giờ để hiển thị preview
  */
-const formatPreviewTime = (timeStr?: string | number | null): string => {
+export const formatPreviewTime = (timeStr?: string | number | null): string => {
   if (!timeStr) return '';
   
   let date: Date;
@@ -67,7 +67,8 @@ const formatPreviewTime = (timeStr?: string | number | null): string => {
  */
 export const mapZaloConversationToConversation = (
   zaloConv: ZaloConversation,
-  messages: ZaloMessage[] = []
+  messages: ZaloMessage[] = [],
+  accountId?: string
 ): Conversation => {
   const name = zaloConv.d_name || zaloConv.group_name || 'Người dùng';
   const lastMessage = messages[messages.length - 1];
@@ -82,6 +83,11 @@ export const mapZaloConversationToConversation = (
     unread: 0, // Zalo API không trả về unread count
     channel: 'zalo',
     messages: messages.map(mapZaloMessageToMessage),
+    // Store metadata for sending messages
+    thread_id: zaloConv.thread_id,
+    peer_id: zaloConv.peer_id,
+    conversation_id: zaloConv.conversation_id,
+    account_id: accountId,
   };
 };
 
@@ -102,7 +108,8 @@ export const mapZaloMessageToMessage = (zaloMsg: ZaloMessage): Message => {
  */
 export const mapZaloOAConversationToConversation = (
   oaConv: OaConversationItem,
-  messages: OaMessageItem[] = []
+  messages: OaMessageItem[] = [],
+  accountId?: string
 ): Conversation => {
   const name = oaConv.display_name || 'Người dùng';
   const lastMessage = messages[messages.length - 1];
@@ -117,6 +124,9 @@ export const mapZaloOAConversationToConversation = (
     unread: 0, // Zalo OA API không trả về unread count
     channel: 'zalo-oa',
     messages: messages.map(mapZaloOAMessageToMessage),
+    // Store metadata for sending messages
+    conversation_id: oaConv.conversation_id || oaConv.id,
+    account_id: accountId,
   };
 };
 
@@ -126,11 +136,17 @@ export const mapZaloOAConversationToConversation = (
 export const mapZaloOAMessageToMessage = (oaMsg: OaMessageItem): Message => {
   let text = oaMsg.text || '';
   
-  // Nếu có attachment, thêm thông tin vào text
-  if (oaMsg.attachments) {
-    if (oaMsg.attachments.type === 'photo') {
-      text = text ? `${text} [Ảnh]` : '[Ảnh]';
-    }
+  // Nếu có attachment ảnh, tạo JSON string để ChatArea có thể parse và hiển thị ảnh
+  if (oaMsg.attachments && oaMsg.attachments.type === 'photo') {
+    const imageData = {
+      type: 'photo',
+      url: oaMsg.attachments.url,
+      thumb: oaMsg.attachments.thumb || oaMsg.attachments.url,
+      title: text || 'Ảnh',
+      description: oaMsg.attachments.description || ''
+    };
+    // Nếu có text, giữ text riêng, nếu không thì dùng JSON ảnh
+    text = text || JSON.stringify(imageData);
   }
   
   return {

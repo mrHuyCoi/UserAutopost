@@ -10,6 +10,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { AddChannelModal } from './components/AddChannelModal';
 import { QRModal } from './components/QRModal';
 import { AddFAQModal } from './components/AddFAQModal';
+import StaffManagement from './components/StaffManagement';
 import { useZaloSessions } from './hooks/useZaloSessions';
 import { useZaloConversations } from './hooks/useZaloConversations';
 import { useZaloOAConversations } from './hooks/useZaloOAConversations';
@@ -21,6 +22,7 @@ import {
   mapZaloConversationToConversation,
   mapZaloOAConversationToConversation,
   mapFBConversationToConversation,
+  formatPreviewTime,
 } from './utils/apiDataMapper';
 
 const ChannelManagement: React.FC = () => {
@@ -80,6 +82,12 @@ const ChannelManagement: React.FC = () => {
     return undefined;
   }, [selectedChannel]);
 
+  // Get first connected Zalo account ID for staff management
+  const firstZaloAccountId = useMemo(() => {
+    const connectedZaloChannel = channels.find(c => c.type === 'zalo' && c.status === 'connected' && c.phone);
+    return connectedZaloChannel?.phone || undefined;
+  }, [channels]);
+
   // Hooks for fetching conversations and messages from API
   const zaloConversationsHook = useZaloConversations(zaloAccountId);
   const zaloOAConversationsHook = useZaloOAConversations(zaloOAAccountId);
@@ -99,13 +107,13 @@ const ChannelManagement: React.FC = () => {
   const zaloConversations = useMemo<Conversation[]>(() => {
     if (!zaloAccountId || !zaloConversationsHook.conversations.length) return [];
     
-    return zaloConversationsHook.conversations.map(conv => {
+      return zaloConversationsHook.conversations.map(conv => {
       // Get messages for this conversation if it's active
       const messages = conv.conversation_id === zaloConversationsHook.active?.conversation_id
         ? zaloConversationsHook.messages
         : [];
       
-      return mapZaloConversationToConversation(conv, messages);
+      return mapZaloConversationToConversation(conv, messages, zaloAccountId);
     });
   }, [zaloAccountId, zaloConversationsHook.conversations, zaloConversationsHook.active, zaloConversationsHook.messages]);
 
@@ -113,13 +121,13 @@ const ChannelManagement: React.FC = () => {
   const zaloOAConversations = useMemo<Conversation[]>(() => {
     if (!zaloOAAccountId || !zaloOAConversationsHook.conversations.length) return [];
     
-    return zaloOAConversationsHook.conversations.map(conv => {
+      return zaloOAConversationsHook.conversations.map(conv => {
       // Get messages for this conversation if it's active
       const messages = conv.conversation_id === zaloOAConversationsHook.activeConversationId
         ? zaloOAConversationsHook.messages
         : [];
       
-      return mapZaloOAConversationToConversation(conv, messages);
+      return mapZaloOAConversationToConversation(conv, messages, zaloOAAccountId);
     });
   }, [zaloOAAccountId, zaloOAConversationsHook.conversations, zaloOAConversationsHook.activeConversationId, zaloOAConversationsHook.messages]);
 
@@ -185,7 +193,20 @@ const ChannelManagement: React.FC = () => {
     if (!messageText.trim() || !zaloOAConversationsHook.activeConversationId) return;
 
     try {
-      await zaloOAConversationsHook.sendText(zaloOAConversationsHook.activeConversationId, messageText);
+      // Lấy conversation object từ hook để lấy conversation_id (user_id)
+      const activeConv = zaloOAConversationsHook.conversations.find(
+        conv => conv.id === zaloOAConversationsHook.activeConversationId || 
+                conv.conversation_id === zaloOAConversationsHook.activeConversationId
+      );
+      
+      if (!activeConv) {
+        console.error('Không tìm thấy conversation');
+        return;
+      }
+      
+      // conversation_id chính là user_id cần gửi đến
+      const toUserId = activeConv.conversation_id || activeConv.id;
+      await zaloOAConversationsHook.sendText(toUserId, messageText);
     } catch (error) {
       console.error('Error sending Zalo OA message:', error);
       // Error is already handled in the hook
@@ -226,6 +247,128 @@ const ChannelManagement: React.FC = () => {
   const [allMessengerConversations, setAllMessengerConversations] = useState<Conversation[]>([]);
   const [loadingAllConversations, setLoadingAllConversations] = useState(false);
 
+  // Sync WebSocket updates from hooks to allConversations
+  useEffect(() => {
+    if (activeTab !== 'conversations') return;
+
+    // Sync Zalo conversations updates
+    const connectedZaloChannels = channels.filter(c => c.type === 'zalo' && c.status === 'connected' && c.phone);
+    connectedZaloChannels.forEach(channel => {
+      if (zaloConversationsHook.accountId === channel.phone) {
+        // Update allZaloConversations with latest data from hook
+        setAllZaloConversations(prev => {
+          const updated = prev.map(conv => {
+            if (conv.channel !== 'zalo' || conv.account_id !== channel.phone) return conv;
+            
+            // Find matching conversation in hook
+            const hookConv = zaloConversationsHook.conversations.find(
+              c => (c.thread_id && String(c.thread_id) === conv.thread_id) ||
+                   (c.peer_id && String(c.peer_id) === conv.peer_id) ||
+                   (c.conversation_id && String(c.conversation_id) === conv.conversation_id) ||
+                   (c.thread_id && String(c.thread_id) === conv.id) ||
+                   (c.peer_id && String(c.peer_id) === conv.id) ||
+                   (c.conversation_id && String(c.conversation_id) === conv.id)
+            );
+            
+            if (hookConv) {
+              // Get latest message for preview if available
+              let preview = hookConv.last_content || conv.preview;
+              // If this conversation is active in hook, get latest message
+              if (zaloConversationsHook.active && 
+                  (String(zaloConversationsHook.active.thread_id) === String(hookConv.thread_id) ||
+                   String(zaloConversationsHook.active.peer_id) === String(hookConv.peer_id))) {
+                const latestMsg = zaloConversationsHook.messages[zaloConversationsHook.messages.length - 1];
+                if (latestMsg?.content) {
+                  preview = latestMsg.content;
+                }
+              }
+              
+              // Update preview and time from hook
+              return {
+                ...conv,
+                preview,
+                time: formatPreviewTime(hookConv.last_ts || hookConv.last_created_at),
+              };
+            }
+            return conv;
+          });
+          
+          // Add new conversations from hook that don't exist in allZaloConversations
+          const existingIds = new Set(updated.map(c => c.id));
+          const newConvs = zaloConversationsHook.conversations
+            .filter(c => {
+              const convId = c.conversation_id || c.thread_id || c.peer_id || '';
+              return convId && !existingIds.has(convId);
+            })
+            .map(conv => mapZaloConversationToConversation(conv, [], channel.phone));
+          
+          return [...updated, ...newConvs];
+        });
+      }
+    });
+  }, [activeTab, channels, zaloConversationsHook.conversations, zaloConversationsHook.accountId, zaloConversationsHook.active, zaloConversationsHook.messages]);
+
+  // Sync Zalo OA conversations updates
+  useEffect(() => {
+    if (activeTab !== 'conversations') return;
+
+    const connectedOAChannels = channels.filter(c => c.type === 'zalo-oa' && c.status === 'connected');
+    connectedOAChannels.forEach(channel => {
+      const match = channel.id.match(/^zalo-oa-(.+)$/);
+      if (match) {
+        const accountId = match[1];
+        // Update allZaloOAConversations with latest data from hook
+        setAllZaloOAConversations(prev => {
+          const updated = prev.map(conv => {
+            if (conv.channel !== 'zalo-oa' || conv.account_id !== accountId) return conv;
+            
+            // Find matching conversation in hook
+            const hookConv = zaloOAConversationsHook.conversations.find(
+              c => (c.conversation_id && String(c.conversation_id) === conv.conversation_id) ||
+                   (c.id && String(c.id) === conv.id) ||
+                   (c.conversation_id && String(c.conversation_id) === conv.id) ||
+                   (c.id && String(c.id) === conv.conversation_id)
+            );
+            
+            if (hookConv) {
+              // Get latest message for preview if available
+              let preview = conv.preview;
+              // If this conversation is active in hook, get latest message
+              if (zaloOAConversationsHook.activeConversationId &&
+                  (String(zaloOAConversationsHook.activeConversationId) === String(hookConv.id) ||
+                   String(zaloOAConversationsHook.activeConversationId) === String(hookConv.conversation_id))) {
+                const latestMsg = zaloOAConversationsHook.messages[zaloOAConversationsHook.messages.length - 1];
+                if (latestMsg?.text) {
+                  preview = latestMsg.text;
+                }
+              }
+              
+              // Update preview and time from hook
+              const lastMsg = hookConv.last_message_at ? new Date(hookConv.last_message_at) : null;
+              return {
+                ...conv,
+                preview,
+                time: lastMsg ? formatPreviewTime(lastMsg.toISOString()) : conv.time,
+              };
+            }
+            return conv;
+          });
+          
+          // Add new conversations from hook that don't exist in allZaloOAConversations
+          const existingIds = new Set(updated.map(c => c.id));
+          const newConvs = zaloOAConversationsHook.conversations
+            .filter(c => {
+              const convId = c.conversation_id || c.id || '';
+              return convId && !existingIds.has(convId);
+            })
+            .map(conv => mapZaloOAConversationToConversation(conv, [], accountId));
+          
+          return [...updated, ...newConvs];
+        });
+      }
+    });
+  }, [activeTab, channels, zaloOAConversationsHook.conversations, zaloOAConversationsHook.activeConversationId, zaloOAConversationsHook.messages]);
+
   // Load conversations from all connected channels when on conversations tab
   useEffect(() => {
     if (activeTab === 'conversations') {
@@ -244,7 +387,7 @@ const ChannelManagement: React.FC = () => {
               const { getZaloConversations } = await import('../../services/zaloService');
               const res = await getZaloConversations(channel.phone!);
               const mapped = (res.items || []).map(conv => 
-                mapZaloConversationToConversation(conv, [])
+                mapZaloConversationToConversation(conv, [], channel.phone)
               );
               zaloConvs.push(...mapped);
             } catch (e) {
@@ -263,7 +406,7 @@ const ChannelManagement: React.FC = () => {
                 const { listOaConversations } = await import('../../services/zaloOAService');
                 const res = await listOaConversations(accountId, { limit: 50, offset: 0 });
                 const mapped = (res.data || []).map(conv => 
-                  mapZaloOAConversationToConversation(conv, [])
+                  mapZaloOAConversationToConversation(conv, [], accountId)
                 );
                 oaConvs.push(...mapped);
               }
@@ -328,6 +471,7 @@ const ChannelManagement: React.FC = () => {
 
   const [activeAllConversation, setActiveAllConversation] = useState<string>('');
   const [conversationFilter, setConversationFilter] = useState<'all' | 'zalo' | 'zalo-oa' | 'messenger'>('all');
+  const [zaloSubTab, setZaloSubTab] = useState<'conversations' | 'staff-management'>('conversations');
 
   // Filter conversations based on selected filter
   const filteredAllConversations = useMemo(() => {
@@ -352,6 +496,162 @@ const ChannelManagement: React.FC = () => {
   const [allConversationMessages, setAllConversationMessages] = useState<Record<string, Message[]>>({});
   const [loadingAllMessages, setLoadingAllMessages] = useState<string | null>(null);
 
+  // Listen to WebSocket messages and update allConversationMessages directly
+  // This ensures incoming messages are displayed in real-time even if conversation is not active in hook
+  useEffect(() => {
+    if (activeTab !== 'conversations') return;
+
+    // This effect will sync messages from hooks to allConversationMessages
+    // The hooks now capture ALL incoming messages (even if conversation not active)
+    // So we just need to sync them properly
+  }, [
+    activeTab,
+    allConversations,
+    zaloConversationsHook.messages,
+    zaloConversationsHook.active,
+    zaloOAConversationsHook.messages,
+    zaloOAConversationsHook.activeConversationId,
+    allConversationMessages, // Include to check for duplicates
+  ]);
+
+  // Sync messages from hooks to allConversationMessages when active conversation changes or messages update
+  useEffect(() => {
+    if (activeTab !== 'conversations' || !activeAllConversation) return;
+
+    const conversation = allConversations.find(c => c.id === activeAllConversation);
+    if (!conversation) return;
+
+    // Sync Zalo messages
+    if (conversation.channel === 'zalo' && zaloConversationsHook.active) {
+      const activeConvId = zaloConversationsHook.active.conversation_id || 
+                          zaloConversationsHook.active.thread_id || 
+                          zaloConversationsHook.active.peer_id || '';
+      
+      if (String(activeConvId) === String(conversation.id) || 
+          (conversation.thread_id && String(zaloConversationsHook.active.thread_id) === String(conversation.thread_id)) ||
+          (conversation.peer_id && String(zaloConversationsHook.active.peer_id) === String(conversation.peer_id))) {
+        // Map Zalo messages to Message format
+        const messages: Message[] = zaloConversationsHook.messages.map(msg => ({
+          id: msg.id || `${msg.ts}`,
+          text: msg.content || '',
+          time: msg.created_at || (msg.ts ? new Date(msg.ts).toISOString() : new Date().toISOString()),
+          sender: msg.is_self ? 'user' : 'bot',
+        }));
+        
+        setAllConversationMessages(prev => {
+          // Replace optimistic messages with real ones
+          const currentMessages = prev[activeAllConversation] || [];
+          const optimisticIndices: number[] = [];
+          currentMessages.forEach((m, idx) => {
+            if (m.id.startsWith('temp-')) {
+              // Check if there's a matching real message
+              const matchingReal = messages.find(
+                realMsg => realMsg.text === m.text && realMsg.sender === m.sender
+              );
+              if (matchingReal) {
+                optimisticIndices.push(idx);
+              }
+            }
+          });
+          
+          // If we have matching real messages, replace optimistic ones
+          if (optimisticIndices.length > 0) {
+            const newMessages = [...currentMessages];
+            optimisticIndices.forEach((idx) => {
+              const matchingReal = messages.find(
+                realMsg => realMsg.text === newMessages[idx].text && realMsg.sender === newMessages[idx].sender
+              );
+              if (matchingReal) {
+                newMessages[idx] = matchingReal;
+              }
+            });
+            // Merge with new messages from hook, avoiding duplicates
+            const existingIds = new Set(newMessages.map(m => m.id));
+            const newFromHook = messages.filter(m => !existingIds.has(m.id));
+            return {
+              ...prev,
+              [activeAllConversation]: [...newMessages, ...newFromHook],
+            };
+          }
+          
+          // No optimistic to replace, just update with hook messages
+          return {
+            ...prev,
+            [activeAllConversation]: messages,
+          };
+        });
+      }
+    }
+
+    // Sync Zalo OA messages
+    if (conversation.channel === 'zalo-oa' && zaloOAConversationsHook.activeConversationId) {
+      const activeConvId = zaloOAConversationsHook.activeConversationId;
+      
+      if (String(activeConvId) === String(conversation.id) || 
+          String(activeConvId) === String(conversation.conversation_id)) {
+        // Map Zalo OA messages to Message format
+        const messages: Message[] = zaloOAConversationsHook.messages.map(msg => ({
+          id: msg.id,
+          text: msg.text || '',
+          time: msg.timestamp || '',
+          sender: msg.direction === 'in' ? 'user' : 'bot',
+        }));
+        
+        setAllConversationMessages(prev => {
+          // Replace optimistic messages with real ones
+          const currentMessages = prev[activeAllConversation] || [];
+          const optimisticIndices: number[] = [];
+          currentMessages.forEach((m, idx) => {
+            if (m.id.startsWith('temp-')) {
+              // Check if there's a matching real message
+              const matchingReal = messages.find(
+                realMsg => realMsg.text === m.text && realMsg.sender === m.sender
+              );
+              if (matchingReal) {
+                optimisticIndices.push(idx);
+              }
+            }
+          });
+          
+          // If we have matching real messages, replace optimistic ones
+          if (optimisticIndices.length > 0) {
+            const newMessages = [...currentMessages];
+            optimisticIndices.forEach((idx) => {
+              const matchingReal = messages.find(
+                realMsg => realMsg.text === newMessages[idx].text && realMsg.sender === newMessages[idx].sender
+              );
+              if (matchingReal) {
+                newMessages[idx] = matchingReal;
+              }
+            });
+            // Merge with new messages from hook, avoiding duplicates
+            const existingIds = new Set(newMessages.map(m => m.id));
+            const newFromHook = messages.filter(m => !existingIds.has(m.id));
+            return {
+              ...prev,
+              [activeAllConversation]: [...newMessages, ...newFromHook],
+            };
+          }
+          
+          // No optimistic to replace, just update with hook messages
+          return {
+            ...prev,
+            [activeAllConversation]: messages,
+          };
+        });
+      }
+    }
+  }, [
+    activeTab,
+    activeAllConversation,
+    allConversations,
+    zaloConversationsHook.active,
+    zaloConversationsHook.messages,
+    zaloOAConversationsHook.activeConversationId,
+    zaloOAConversationsHook.messages,
+    allConversationMessages, // Add this to track optimistic messages
+  ]);
+
   // Load messages for a conversation in "all conversations" tab
   const loadMessagesForConversation = async (conversation: Conversation) => {
     if (allConversationMessages[conversation.id]) return; // Already loaded
@@ -375,7 +675,7 @@ const ChannelManagement: React.FC = () => {
             id: msg.id || `${msg.ts}`,
             text: msg.content || '',
             time: msg.created_at || (msg.ts ? new Date(msg.ts).toISOString() : new Date().toISOString()),
-            sender: msg.is_self ? 'bot' : 'user',
+            sender: msg.is_self ? 'user' : 'bot',
           }));
         }
       } else if (conversation.channel === 'zalo-oa') {
@@ -392,7 +692,7 @@ const ChannelManagement: React.FC = () => {
               id: msg.id,
               text: msg.text || '',
               time: msg.timestamp || '',
-              sender: msg.direction === 'out' ? 'bot' : 'user',
+              sender: msg.direction === 'in' ? 'user' : 'bot',
             }));
           }
         }
@@ -422,19 +722,128 @@ const ChannelManagement: React.FC = () => {
 
   const sendMessageToAllConversation = async (conversationId: string, messageText: string) => {
     const conversation = allConversations.find(conv => conv.id === conversationId);
-    if (!conversation) return;
-
-    // Determine channel type and call appropriate send function
-    if (conversation.channel === 'zalo') {
-      sendZaloMessage(conversationId, messageText);
-    } else if (conversation.channel === 'zalo-oa') {
-      sendZaloOAMessage(conversationId, messageText);
-    } else if (conversation.channel === 'messenger') {
-      sendMessengerMessage(conversationId, messageText);
+    if (!conversation || !messageText.trim()) {
+      console.log('No conversation found or empty message', { conversationId, messageText });
+      return;
     }
-    
-    // Reload messages after sending
-    await loadMessagesForConversation(conversation);
+
+    try {
+      // Determine channel type and send message
+      if (conversation.channel === 'zalo') {
+        // Find the channel for this conversation
+        const channel = channels.find(c => c.type === 'zalo' && c.status === 'connected' && c.phone);
+        if (!channel?.phone) {
+          console.error('No connected Zalo channel found');
+          alert('Không tìm thấy kênh Zalo đã kết nối');
+          return;
+        }
+
+        // Get thread_id and peer_id from conversation metadata
+        const threadId = conversation.thread_id || '';
+        const peerId = conversation.peer_id || '';
+        const accountId = conversation.account_id || channel.phone;
+
+        if (!threadId && !peerId) {
+          console.error('Missing thread_id and peer_id in conversation', conversation);
+          alert('Không tìm thấy thông tin cuộc hội thoại. Vui lòng thử lại.');
+          return;
+        }
+
+        console.log('Sending Zalo message', { conversationId, threadId, peerId, accountId });
+
+        // Try to find conversation in hook first
+        const zaloConv = zaloConversationsHook.conversations.find(
+          c => (c.thread_id && String(c.thread_id) === threadId) || 
+               (c.peer_id && String(c.peer_id) === peerId) ||
+               (c.conversation_id && String(c.conversation_id) === conversationId)
+        );
+
+        if (zaloConv && zaloConversationsHook.accountId === channel.phone) {
+          // Set as active in hook
+          zaloConversationsHook.setActive(zaloConv);
+          // Send message via hook
+          await zaloConversationsHook.sendText(messageText);
+        } else {
+          // If not found in hook, send directly via API
+          const { sendZaloTextMessage } = await import('../../services/zaloService');
+          await sendZaloTextMessage(threadId, messageText, channel.phone);
+        }
+      } else if (conversation.channel === 'zalo-oa') {
+        // Find the OA account for this conversation
+        const channel = channels.find(c => c.type === 'zalo-oa' && c.status === 'connected');
+        if (!channel) {
+          console.error('No connected Zalo OA channel found');
+          alert('Không tìm thấy kênh Zalo OA đã kết nối');
+          return;
+        }
+
+        const match = channel.id.match(/^zalo-oa-(.+)$/);
+        if (!match) {
+          console.error('Invalid Zalo OA channel ID format');
+          return;
+        }
+
+        const accountId = conversation.account_id || match[1];
+        const toUserId = conversation.conversation_id || conversation.id; // conversation_id is the user_id for Zalo OA
+
+        if (!toUserId || !accountId) {
+          console.error('Missing toUserId or accountId in conversation', conversation);
+          alert('Không tìm thấy thông tin cuộc hội thoại. Vui lòng thử lại.');
+          return;
+        }
+
+        console.log('Sending Zalo OA message', { conversationId, toUserId, accountId });
+
+        // Try to find conversation in hook first
+        const oaConv = zaloOAConversationsHook.conversations.find(
+          c => c.conversation_id === toUserId || c.id === toUserId || c.id === conversationId
+        );
+
+        if (oaConv && zaloOAConversationsHook.conversations.length > 0) {
+          // Set as active in hook
+          const convId = oaConv.id || oaConv.conversation_id || toUserId;
+          zaloOAConversationsHook.setActiveConversationId(convId);
+          // Send message via hook
+          await zaloOAConversationsHook.sendText(toUserId, messageText);
+        } else {
+          // If not found in hook, send directly via API
+          const { sendOaTextMessage } = await import('../../services/zaloOAService');
+          await sendOaTextMessage(accountId, toUserId, messageText);
+        }
+      } else if (conversation.channel === 'messenger') {
+        sendMessengerMessage(conversationId, messageText);
+      }
+      
+      // Add optimistic message to allConversationMessages if viewing this conversation
+      if (activeAllConversation === conversationId) {
+        const optimisticMessage: Message = {
+          id: `temp-${Date.now()}`,
+          text: messageText,
+          time: new Date().toISOString(),
+          sender: 'user',
+        };
+        
+        setAllConversationMessages(prev => ({
+          ...prev,
+          [conversationId]: [...(prev[conversationId] || []), optimisticMessage],
+        }));
+      }
+      
+      // Reload messages after sending (with a small delay to allow WebSocket to update)
+      // Note: WebSocket will update messages in real-time, so this is just a fallback
+      setTimeout(async () => {
+        // Only reload if WebSocket hasn't updated (check if optimistic message still exists)
+        const currentMessages = allConversationMessages[conversationId] || [];
+        const stillHasOptimistic = currentMessages.some(m => m.id.startsWith('temp-'));
+        if (stillHasOptimistic) {
+          await loadMessagesForConversation(conversation);
+        }
+      }, 2000);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Không thể gửi tin nhắn. Vui lòng thử lại.';
+      alert(errorMessage);
+    }
   };
 
   const handleConnectChannel = (channelId: string) => {
@@ -747,82 +1156,139 @@ const ChannelManagement: React.FC = () => {
             {/* Conversations Tab - Shows all conversations from all channels */}
             {viewMode === 'channels' && activeTab === 'conversations' && (
               <div>
-                <div className="mb-4 sm:mb-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-800">
-                        Tất cả Hội thoại
-                      </h2>
-                      <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                        Xem và quản lý tất cả hội thoại từ tất cả các nền tảng đã kết nối
-                        {conversationFilter !== 'all' && (
-                          <span className="ml-2 text-blue-600">
-                            ({filteredAllConversations.length} {conversationFilter === 'zalo' ? 'Zalo' : conversationFilter === 'zalo-oa' ? 'Zalo OA' : 'Messenger'})
-                          </span>
-                        )}
-                      </p>
+                {/* Sub-tabs for Zalo filter */}
+                {conversationFilter === 'zalo' && (
+                  <div className="mb-4 border-b border-gray-200">
+                    <div className="flex gap-4">
+                      <button
+                        onClick={() => setZaloSubTab('conversations')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                          zaloSubTab === 'conversations'
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Hội thoại
+                      </button>
+                      <button
+                        onClick={() => setZaloSubTab('staff-management')}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                          zaloSubTab === 'staff-management'
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Quản lý nhân viên
+                      </button>
                     </div>
-                    {conversationFilter === 'all' && (
-                      <div className="text-sm text-gray-500">
-                        Tổng: {filteredAllConversations.length} hội thoại
+                  </div>
+                )}
+
+                {/* Staff Management Tab */}
+                {conversationFilter === 'zalo' && zaloSubTab === 'staff-management' ? (
+                  firstZaloAccountId ? (
+                    <StaffManagement accountId={firstZaloAccountId} />
+                  ) : (
+                    <div className="bg-white rounded-lg shadow-sm p-6">
+                      <div className="text-center py-12">
+                        <p className="text-gray-500 text-sm">Vui lòng kết nối ít nhất một kênh Zalo để quản lý nhân viên</p>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <>
+                    <div className="mb-4 sm:mb-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-800">
+                            Tất cả Hội thoại
+                          </h2>
+                          <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                            Xem và quản lý tất cả hội thoại từ tất cả các nền tảng đã kết nối
+                            {conversationFilter !== 'all' && (
+                              <span className="ml-2 text-blue-600">
+                                ({filteredAllConversations.length} {conversationFilter === 'zalo' ? 'Zalo' : conversationFilter === 'zalo-oa' ? 'Zalo OA' : 'Messenger'})
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        {conversationFilter === 'all' && (
+                          <div className="text-sm text-gray-500">
+                            Tổng: {filteredAllConversations.length} hội thoại
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {loadingAllConversations ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                          <p className="text-gray-500">Đang tải hội thoại...</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                        <div className="lg:col-span-1">
+                          <ConversationList
+                            conversations={filteredAllConversations}
+                            activeConversation={activeAllConversation}
+                            onConversationSelect={(id) => {
+                              setActiveAllConversation(id);
+                              const conv = filteredAllConversations.find(c => c.id === id);
+                              if (conv) {
+                                loadMessagesForConversation(conv);
+                              }
+                            }}
+                            showChannelFilter={true}
+                            channelFilter={conversationFilter}
+                            onChannelFilterChange={(filter) => {
+                              setConversationFilter(filter);
+                              // Reset to conversations tab when filter changes
+                              if (filter !== 'zalo') {
+                                setZaloSubTab('conversations');
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="lg:col-span-2">
+                          {getActiveAllConversation() ? (
+                            loadingAllMessages === activeAllConversation ? (
+                              <div className="h-[400px] sm:h-[500px] flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="text-center">
+                                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                                  <p className="text-gray-500 text-sm">Đang tải tin nhắn...</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <ChatArea
+                                conversation={{
+                                  ...getActiveAllConversation()!,
+                                  messages: allConversationMessages[activeAllConversation] || []
+                                }}
+                                onSendMessage={(message) => {
+                                  console.log('ChatArea onSendMessage called', { activeAllConversation, message });
+                                  if (!activeAllConversation) {
+                                    console.warn('No active conversation selected');
+                                    alert('Vui lòng chọn một cuộc hội thoại để gửi tin nhắn');
+                                    return;
+                                  }
+                                  sendMessageToAllConversation(activeAllConversation, message);
+                                }}
+                                onAddToFAQ={handleAddToFAQ}
+                              />
+                            )
+                          ) : (
+                            <div className="h-[400px] sm:h-[500px] flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
+                              <div className="text-center text-gray-500">
+                                <p className="text-sm">Chọn một cuộc hội thoại để xem tin nhắn</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
-                  </div>
-                </div>
-                
-                {loadingAllConversations ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                      <p className="text-gray-500">Đang tải hội thoại...</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-                    <div className="lg:col-span-1">
-                      <ConversationList
-                        conversations={filteredAllConversations}
-                        activeConversation={activeAllConversation}
-                        onConversationSelect={(id) => {
-                          setActiveAllConversation(id);
-                          const conv = filteredAllConversations.find(c => c.id === id);
-                          if (conv) {
-                            loadMessagesForConversation(conv);
-                          }
-                        }}
-                        showChannelFilter={true}
-                        channelFilter={conversationFilter}
-                        onChannelFilterChange={setConversationFilter}
-                      />
-                    </div>
-                    <div className="lg:col-span-2">
-                      {getActiveAllConversation() ? (
-                        loadingAllMessages === activeAllConversation ? (
-                          <div className="h-[400px] sm:h-[500px] flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
-                            <div className="text-center">
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                              <p className="text-gray-500 text-sm">Đang tải tin nhắn...</p>
-                            </div>
-                          </div>
-                        ) : (
-                          <ChatArea
-                            conversation={{
-                              ...getActiveAllConversation()!,
-                              messages: allConversationMessages[activeAllConversation] || []
-                            }}
-                            onSendMessage={(message) => sendMessageToAllConversation(activeAllConversation, message)}
-                            onAddToFAQ={handleAddToFAQ}
-                          />
-                        )
-                      ) : (
-                        <div className="h-[400px] sm:h-[500px] flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
-                          <div className="text-center text-gray-500">
-                            <p className="text-sm">Chọn một cuộc hội thoại để xem tin nhắn</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  </>
                 )}
               </div>
             )}

@@ -375,7 +375,7 @@ const ChannelManagement: React.FC = () => {
             id: msg.id || `${msg.ts}`,
             text: msg.content || '',
             time: msg.created_at || (msg.ts ? new Date(msg.ts).toISOString() : new Date().toISOString()),
-            sender: msg.is_self ? 'bot' : 'user',
+            sender: msg.is_self ? 'user' : 'bot',
           }));
         }
       } else if (conversation.channel === 'zalo-oa') {
@@ -392,7 +392,7 @@ const ChannelManagement: React.FC = () => {
               id: msg.id,
               text: msg.text || '',
               time: msg.timestamp || '',
-              sender: msg.direction === 'out' ? 'bot' : 'user',
+              sender: msg.direction === 'in' ? 'user' : 'bot',
             }));
           }
         }
