@@ -99,6 +99,8 @@ export const mapZaloMessageToMessage = (zaloMsg: ZaloMessage): Message => {
     id: zaloMsg.id,
     text: zaloMsg.content || '',
     time: formatTime(zaloMsg.ts || zaloMsg.created_at),
+    // is_self = true (mình gửi) -> sender = 'user' -> hiển thị bên phải (màu xanh)
+    // is_self = false (người khác gửi) -> sender = 'bot' -> hiển thị bên trái (màu trắng)
     sender: zaloMsg.is_self ? 'user' : 'bot',
   };
 };

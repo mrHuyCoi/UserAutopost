@@ -1,7 +1,7 @@
 import { getAuthToken } from './apiService';
 import { getMyApiKey } from './apiService';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.161:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://test.doiquanai.vn';
 
 // Luôn gọi API để lấy API Key thay vì lấy từ localStorage
 const fetchApiKey = async (): Promise<string> => {

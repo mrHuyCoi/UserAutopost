@@ -40,7 +40,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
     console.log('Sending message:', message);
     try {
+      console.log("ok1");
+
       onSendMessage(message);
+      console.log("ok2");
       setMessage('');
       // Reset textarea height
       if (textareaRef.current) {
@@ -187,7 +190,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           </div>
         </div>
         <div className="text-xs text-gray-500 hidden sm:block">
-          Zalo - 0987654321
+          Zalo
         </div>
       </div>
 
@@ -201,22 +204,22 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             return (
               <div
                 key={msg.id}
-                className={`flex gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
+                className={`flex gap-2 ${isUser ? 'justify-start' : 'justify-end'}`}
               >
                 {/* Avatar for received messages */}
-                {!isUser && showAvatar && (
+                {isUser && showAvatar && (
                   <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
                     {conversation.avatar}
                   </div>
                 )}
                 
-                {!isUser && !showAvatar && (
+                {isUser && !showAvatar && (
                   <div className="w-8 flex-shrink-0"></div>
                 )}
 
                 {/* Message Bubble */}
-                <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-[70%]`}>
-                  {!isUser && showAvatar && (
+                <div className={`flex flex-col ${isUser ? 'items-start' : 'items-end'} max-w-[70%]`}>
+                  {isUser && showAvatar && (
                     <div className="text-xs text-gray-500 mb-1 ml-2">
                       {conversation.name}
                     </div>
@@ -225,9 +228,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   <div
                     className={`relative group p-3 rounded-2xl ${
                       isUser
-                        ? 'bg-blue-500 text-white rounded-br-md'
-                        : 'bg-white text-gray-800 rounded-bl-md shadow-sm'
-                    } ${showAvatar ? (isUser ? 'rounded-tr-md' : 'rounded-tl-md') : 'rounded-t-md'}`}
+                        ? 'bg-white text-gray-800 rounded-bl-md shadow-sm'
+                        : 'bg-blue-500 text-white rounded-br-md'
+                    } ${showAvatar ? (isUser ? 'rounded-tl-md' : 'rounded-tr-md') : 'rounded-t-md'}`}
                   >
                     {(() => {
                       const content = parseMessageContent(msg.text);

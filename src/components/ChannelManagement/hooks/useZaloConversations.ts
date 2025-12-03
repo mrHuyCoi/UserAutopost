@@ -1,14 +1,23 @@
 // src/hooks/useZaloConversations.ts
-import { useCallback, useEffect, useState, useRef } from 'react';
-import { getZaloConversations, getZaloMessages, sendZaloTextMessage, ZaloConversation, ZaloMessage } from '../../../services/zaloService';
-import { getAuthToken, getApiKey } from '../../../services/apiService';
+import { useCallback, useEffect, useState, useRef } from "react";
+import {
+  getZaloConversations,
+  getZaloMessages,
+  sendZaloTextMessage,
+  ZaloConversation,
+  ZaloMessage,
+} from "../../../services/zaloService";
+import { getAuthToken, getApiKey } from "../../../services/apiService";
 
-type Order = 'asc' | 'desc';
+type Order = "asc" | "desc";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.161:8000';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "https://test.doiquanai.vn";
 
 export function useZaloConversations(defaultAccountId?: string) {
-  const [accountId, setAccountId] = useState<string | undefined>(defaultAccountId);
+  const [accountId, setAccountId] = useState<string | undefined>(
+    defaultAccountId
+  );
   const [conversations, setConversations] = useState<ZaloConversation[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [errorList, setErrorList] = useState<string | null>(null);
@@ -18,48 +27,64 @@ export function useZaloConversations(defaultAccountId?: string) {
   const [messages, setMessages] = useState<ZaloMessage[]>([]);
   const [loadingMsg, setLoadingMsg] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [order, setOrder] = useState<Order>('asc'); // backend default asc
+  const [order, setOrder] = useState<Order>("asc"); // backend default asc
 
   // WebSocket refs
+  const activeRef = useRef<ZaloConversation | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const pingIntervalRef = useRef<number | null>(null);
-  const recentlySentRef = useRef<Record<string, Array<{ text?: string; kind?: string; time: number }>>>({});
-
+  const recentlySentRef = useRef<
+    Record<string, Array<{ text?: string; kind?: string; time: number }>>
+  >({});
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
   const loadConversations = useCallback(async (acc?: string) => {
     if (!acc) return;
     setLoadingList(true);
     setErrorList(null);
     try {
       const res = await getZaloConversations(acc);
+      console.log("res", res);
       setConversations(res.items || []);
     } catch (e: unknown) {
       const error = e as { message?: string };
-      setErrorList(error?.message || 'Không tải được hội thoại');
+      setErrorList(error?.message || "Không tải được hội thoại");
     } finally {
       setLoadingList(false);
     }
   }, []);
 
-  const loadMessages = useCallback(async (conv?: ZaloConversation) => {
-    if (!conv || (!conv.thread_id && !conv.peer_id)) {
-      setMessages([]);
-      return;
-    }
-    setLoadingMsg(true);
-    setErrorMsg(null);
-    try {
-      const res = await getZaloMessages(conv.thread_id, conv.peer_id, 50, order, accountId);
-      setMessages(res.items || []);
-    } catch (e: unknown) {
-      const error = e as { message?: string };
-      setErrorMsg(error?.message || 'Không tải được tin nhắn');
-    } finally {
-      setLoadingMsg(false);
-    }
-  }, [accountId, order]);
+  const loadMessages = useCallback(
+    async (conv?: ZaloConversation) => {
+      if (!conv?.thread_id) {
+        setMessages([]);
+        return;
+      }
+      setLoadingMsg(true);
+      try {
+        // Mặc định lấy 50 tin mới nhất
+        const res = await getZaloMessages(
+          conv.thread_id,
+          undefined,
+          50,
+          "desc",
+          accountId
+        );
+        // Backend trả về DESC (mới nhất trước), đảo ngược lại để hiển thị chat (cũ nhất trên cùng)
+        setMessages(res.items.reverse() || []);
+      } catch (e: unknown) {
+        const error = e as { message?: string };
+        setErrorMsg(error?.message || "Lỗi tải tin nhắn");
+      } finally {
+        setLoadingMsg(false);
+      }
+    },
+    [accountId]
+  );
 
   useEffect(() => {
-    loadConversations(accountId);
+    if (accountId) loadConversations(accountId);
   }, [accountId, loadConversations]);
 
   useEffect(() => {
@@ -68,322 +93,58 @@ export function useZaloConversations(defaultAccountId?: string) {
 
   // WebSocket connection for real-time messages
   useEffect(() => {
-    if (!accountId) {
-      // Close WebSocket if no account
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-        pingIntervalRef.current = null;
-      }
-      return;
-    }
+    if (!accountId) return;
 
     const token = getAuthToken();
     if (!token) return;
 
-    // Try to get API key (optional, will use token if API key not available)
-    // Note: WebSocket API in browser doesn't support custom headers, so we use token in query
-    getApiKey().catch(() => {}); // Cache API key for future use if needed
+    // Setup URL
+    const host = API_BASE_URL.replace(/^https?:\/\//, "");
+    const wsProtocol = API_BASE_URL.startsWith("https") ? "wss" : "ws";
+    const wsUrl = `${wsProtocol}://${host}/api/v1/ws?token=${encodeURIComponent(
+      token
+    )}`;
 
-    // Build WS URL with token
-    const host = API_BASE_URL.replace(/^https?:\/\//, '');
-    const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss' : 'ws';
-    const wsUrl = `${wsProtocol}://${host}/api/v1/ws?token=${encodeURIComponent(token)}`;
-
+    console.log("[WS] Connecting to:", wsUrl);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('[Zalo WebSocket] ✅ Connected successfully');
-      console.log('[Zalo WebSocket] URL:', wsUrl);
-      // Periodic ping to keep alive
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-      }
+      console.log("[WS] Connected");
+      // Ping keep-alive
       pingIntervalRef.current = window.setInterval(() => {
-        try {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'ping' }));
-          }
-        } catch (error) {
-          console.error('Error sending ping:', error);
-        }
+        if (ws.readyState === WebSocket.OPEN)
+          ws.send(JSON.stringify({ type: "ping" }));
       }, 25000);
     };
 
     ws.onmessage = (event) => {
       try {
-        const raw = String(event.data ?? '');
-        console.log('[Zalo WebSocket] Raw message received:', raw);
-        
-        if (!raw) {
-          console.log('[Zalo WebSocket] Empty message, skipping');
-          return;
+        const payload = JSON.parse(event.data);
+        if (payload.type === "pong" || payload.type === "ack") return;
+
+        // Xử lý tin nhắn đến
+        if (payload.type === "zalo_message" && payload.data) {
+          handleIncomingMessage(payload.data);
         }
-
-        const payload = JSON.parse(raw);
-        console.log('[Zalo WebSocket] Parsed payload:', payload);
-        
-        if (!payload || typeof payload !== 'object') {
-          console.log('[Zalo WebSocket] Invalid payload format, skipping');
-          return;
-        }
-        // Handle pong response
-        if (payload.type === 'pong') {
-          return;
-        }
-
-        // Handle acknowledgment
-        if (payload.type === 'ack') {
-          console.log('Message acknowledged:', payload.echo);
-          return;
-        }
-
-        // Handle notification
-        if (payload.type === 'notification') {
-          console.log('Notification received:', payload.title, payload.message);
-          // You can add notification display logic here
-          return;
-        }
-
-        // Handle realtime events
-        if (payload.type === 'realtime') {
-          if (payload.event === 'new_message' && payload.data) {
-            // Handle realtime message - can be processed similar to zalo_message
-            console.log('Realtime message received:', payload.data);
-          }
-          return;
-        }
-
-        // Handle Zalo message
-        console.log('[Zalo WebSocket] Checking payload type:', payload.type, 'Has data:', !!payload.data);
-        
-        // Log if payload type is not recognized
-        if (payload.type !== 'pong' && 
-            payload.type !== 'ack' && 
-            payload.type !== 'notification' && 
-            payload.type !== 'realtime' && 
-            payload.type !== 'zalo_message') {
-          console.log('[Zalo WebSocket] ⚠️ Unknown payload type:', payload.type, 'Full payload:', payload);
-        }
-        
-        if (payload.type === 'zalo_message' && payload.data) {
-          console.log('[Zalo WebSocket] 📨 Received zalo_message:', payload.data);
-          const d = payload.data as {
-            thread_id?: string | number;
-            msg_id?: string;
-            is_self?: boolean;
-            d_name?: string;
-            content?: string;
-            ts?: number | string;
-            direction?: string;
-            [key: string]: unknown;
-          };
-
-          const threadId = d.thread_id ? String(d.thread_id) : null;
-          console.log('[Zalo WebSocket] Thread ID:', threadId, 'Message data:', d);
-          if (!threadId) {
-            console.log('[Zalo WebSocket] ⚠️ No thread_id found, skipping message');
-            return;
-          }
-
-          // Update conversation preview
-          setConversations((prev) =>
-            prev.map((c) => {
-              const t = c.thread_id;
-              if (t && String(t) === threadId) {
-                return {
-                  ...c,
-                  last_content: d.content || c.last_content,
-                  last_ts: d.ts || c.last_ts,
-                };
-              }
-              return c;
-            })
-          );
-
-          // Always update messages if this conversation exists in our list
-          // This ensures incoming messages are captured even if not currently active
-          const isActiveConversation = active && active.thread_id && String(active.thread_id) === threadId;
-          const conversationExists = conversations.some(c => {
-            const t = c.thread_id;
-            return t && String(t) === threadId;
-          });
-          
-          // Add message if it's the active conversation OR if conversation exists (for incoming messages)
-          console.log('[Zalo WebSocket] Message processing:', {
-            isActiveConversation,
-            conversationExists,
-            is_self: d.is_self,
-            willProcess: isActiveConversation || (conversationExists && !d.is_self),
-          });
-          
-          if (isActiveConversation || (conversationExists && !d.is_self)) {
-            // Dedupe: check if this message was recently sent optimistically
-            const now = Date.now();
-            const windowMs = 4000;
-            const recent = recentlySentRef.current[threadId] || [];
-            const filtered = recent.filter((it) => now - it.time <= windowMs);
-            recentlySentRef.current[threadId] = filtered;
-
-            const isSelfOut = !!d.is_self || String(d.direction || '').toLowerCase() === 'out';
-            if (isSelfOut) {
-              // Check if this matches a recently sent message
-              const normalizedText = (d.content || '').trim();
-              const idx = filtered.findIndex(
-                (it) => it.text && it.text.trim() === normalizedText
-              );
-              if (idx >= 0) {
-                // This is likely a duplicate from our optimistic update
-                // Remove from recently sent to prevent future duplicates
-                filtered.splice(idx, 1);
-                recentlySentRef.current[threadId] = filtered;
-                
-                // Replace optimistic message with real message from server
-                setMessages((prev) => {
-                  // Find and remove optimistic message with matching text
-                  const optimisticIdx = prev.findIndex(
-                    (m) => m.id.startsWith('temp-') && 
-                           m.is_self === true && 
-                           m.content && 
-                           m.content.trim() === normalizedText
-                  );
-                  
-                  if (optimisticIdx >= 0) {
-                    // Replace optimistic with real message
-                    const newMessages = [...prev];
-                    newMessages[optimisticIdx] = {
-                      id: d.msg_id || `${Date.now()}-${Math.random()}`,
-                      is_self: !!d.is_self,
-                      d_name: d.d_name,
-                      content: d.content || '',
-                      ts: d.ts || Date.now(),
-                      created_at: typeof d.ts === 'number' ? new Date(d.ts).toISOString() : new Date().toISOString(),
-                    };
-                    return newMessages;
-                  }
-                  
-                  // If no optimistic found, check if message already exists
-                  const exists = prev.some((m) => {
-                    if (m.id === (d.msg_id || '')) return true;
-                    if (
-                      m.ts === (d.ts || 0) &&
-                      m.content === (d.content || '') &&
-                      m.is_self === (!!d.is_self)
-                    ) {
-                      return true;
-                    }
-                    return false;
-                  });
-                  
-                  if (exists) return prev;
-                  
-                  // Add new message
-                  return [...prev, {
-                    id: d.msg_id || `${Date.now()}-${Math.random()}`,
-                    is_self: !!d.is_self,
-                    d_name: d.d_name,
-                    content: d.content || '',
-                    ts: d.ts || Date.now(),
-                    created_at: typeof d.ts === 'number' ? new Date(d.ts).toISOString() : new Date().toISOString(),
-                  }];
-                });
-                return;
-              }
-            }
-
-            // Create message object
-            const newMsg: ZaloMessage = {
-              id: d.msg_id || `${Date.now()}-${Math.random()}`,
-              is_self: !!d.is_self,
-              d_name: d.d_name,
-              content: d.content || '',
-              ts: d.ts || Date.now(),
-              created_at: typeof d.ts === 'number' ? new Date(d.ts).toISOString() : new Date().toISOString(),
-            };
-
-            // Add message to list (avoid duplicates)
-            setMessages((prev) => {
-              // Check if message already exists
-              const exists = prev.some((m) => {
-                if (m.id === newMsg.id) return true;
-                // Also check by ts and content for duplicates
-                if (
-                  m.ts === newMsg.ts &&
-                  m.content === newMsg.content &&
-                  m.is_self === newMsg.is_self
-                ) {
-                  return true;
-                }
-                return false;
-              });
-
-              if (exists) return prev;
-              return [...prev, newMsg];
-            });
-          }
-        }
-      } catch (error) {
-        console.error('[Zalo WebSocket] ❌ Error parsing WebSocket message:', error);
-        console.error('[Zalo WebSocket] Error details:', {
-          error,
-          eventData: event.data,
-          rawString: String(event.data ?? ''),
-        });
+      } catch (e) {
+        console.error("[WS] Parse error", e);
       }
     };
 
-    ws.onerror = (error) => {
-      console.error('[Zalo WebSocket] ❌ Error:', error);
-      console.error('[Zalo WebSocket] Error details:', {
-        type: error.type,
-        target: error.target,
-        currentTarget: error.currentTarget,
-      });
-    };
-
-    ws.onclose = (event) => {
-      console.log('[Zalo WebSocket] 🔌 Closed:', {
-        code: event.code,
-        reason: event.reason,
-        wasClean: event.wasClean,
-      });
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-        pingIntervalRef.current = null;
-      }
-
-      // Auto-reconnect after 3 seconds if not a normal closure
-      if (event.code !== 1000) {
-        setTimeout(() => {
-          if (accountId && !wsRef.current) {
-            // Trigger reconnect by re-running effect
-            const token = getAuthToken();
-            if (token) {
-              const host = API_BASE_URL.replace(/^https?:\/\//, '');
-              const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss' : 'ws';
-              const wsUrl = `${wsProtocol}://${host}/api/v1/ws?token=${encodeURIComponent(token)}`;
-              wsRef.current = new WebSocket(wsUrl);
-            }
-          }
-        }, 3000);
-      }
+    ws.onclose = () => {
+      console.log("[WS] Disconnected");
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+      // Simple reconnect logic (optional)
     };
 
     return () => {
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-        pingIntervalRef.current = null;
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      ws.close();
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
     };
-  }, [accountId, active, conversations]);
+
+    // QUAN TRỌNG: Chỉ chạy lại khi accountId thay đổi, KHÔNG phụ thuộc active/conversations
+  }, [accountId]);
 
   // Function to send message via WebSocket (optional, can use HTTP API instead)
   // Currently not used but available for future use
@@ -400,80 +161,159 @@ export function useZaloConversations(defaultAccountId?: string) {
   //   return false;
   // }, []);
 
-  const sendText = useCallback(async (text: string) => {
-    if (!active) return;
-    const threadId = active.thread_id || '';
-    const accId = accountId;
-    if (!threadId) return;
+  const handleIncomingMessage = (data: any) => {
+    const threadId = String(data.thread_id);
+    const currentActiveThreadId = activeRef.current?.thread_id; // Đọc từ Ref
 
-    // Track recently sent message for deduplication
-    const tid = String(threadId);
-    if (!recentlySentRef.current[tid]) {
-      recentlySentRef.current[tid] = [];
-    }
-    recentlySentRef.current[tid].push({
-      text,
-      time: Date.now(),
+    // A. Cập nhật Snippet ở Sidebar (Conversations List)
+    setConversations((prev) => {
+      // Tìm xem hội thoại đã tồn tại chưa
+      const exists = prev.some((c) => c.thread_id === threadId);
+
+      if (exists) {
+        // Nếu có rồi: update nội dung cuối & đưa lên đầu
+        const updatedList = prev.map((c) => {
+          if (c.thread_id === threadId) {
+            return {
+              ...c,
+              last_content: data.content,
+              last_ts: data.ts,
+            };
+          }
+          return c;
+        });
+        // Sort lại để thread vừa có tin nhắn nhảy lên đầu (Optional)
+        return updatedList.sort(
+          (a, b) => Number(b.last_ts) - Number(a.last_ts)
+        );
+      } else {
+        // Nếu chưa có (tin nhắn từ người lạ mới): Nên gọi API load lại list
+        // Hoặc tạm thời append vào (cần đúng cấu trúc ZaloConversation)
+        return prev;
+      }
     });
 
-    // optimistic append
-    const optimistic = {
-      id: `temp-${Date.now()}`,
-      content: text,
-      is_self: true,
-      ts: Date.now(),
-      created_at: new Date().toISOString(),
-    } as ZaloMessage;
-    setMessages(prev => [...prev, optimistic]);
+    // B. Nếu tin nhắn thuộc Thread đang mở -> Append vào list Messages
+    if (currentActiveThreadId && String(currentActiveThreadId) === threadId) {
+      setMessages((prevMsgs) => {
+        // 1. Kiểm tra duplicate (Do socket mạng lag có thể gửi 2 lần)
+        const isDuplicate = prevMsgs.some((m) => m.id === data.msg_id);
+        if (isDuplicate) return prevMsgs;
 
-    try {
-      // Option 1: Send via HTTP API (current method)
-      await sendZaloTextMessage(threadId, text, accId);
-      
-      // Option 2: Also try to send via WebSocket if needed (for future use)
-      // sendMessageViaWebSocket({
-      //   type: 'message',
-      //   data: {
-      //     text,
-      //     thread_id: threadId,
-      //     account_id: accId,
-      //     timestamp: new Date().toISOString(),
-      //   }
-      // });
+        // 2. Xử lý Optimistic Message (Tin nhắn ảo tự tạo lúc gửi)
+        // Nếu tin nhắn này là "is_self" (mình gửi) -> Tìm và thay thế tin nhắn tạm
+        if (data.is_self) {
+          // Tìm tin nhắn tạm có nội dung giống
+          const tempMsgIndex = prevMsgs.findIndex(
+            (m) => m.id.startsWith("temp-") && m.content === data.content
+          );
 
-      // WebSocket will receive the actual message, so we don't need to reload
-      // But we'll keep the optimistic message for a short time in case WebSocket is delayed
-      setTimeout(() => {
-        setMessages((prev) => {
-          const optimisticMsg = prev.find((m) => m.id === optimistic.id);
-          if (optimisticMsg && optimisticMsg.id.startsWith('temp-')) {
-            // If optimistic message still exists, keep it (WebSocket might be delayed)
-            return prev;
+          if (tempMsgIndex !== -1) {
+            const newArr = [...prevMsgs];
+            newArr[tempMsgIndex] = {
+              ...newArr[tempMsgIndex],
+              id: data.msg_id, // Cập nhật ID thật
+              ts: data.ts,
+              created_at: new Date(data.ts).toISOString(),
+            };
+            return newArr;
           }
-          return prev;
-        });
-      }, 2000);
-    } catch (e) {
-      // Remove optimistic message on error
-      setMessages(prev => prev.filter(m => m.id !== optimistic.id));
-      // Remove from recently sent
-      const recent = recentlySentRef.current[tid] || [];
-      const idx = recent.findIndex((it) => it.text === text);
-      if (idx >= 0) recent.splice(idx, 1);
-      recentlySentRef.current[tid] = recent;
+        }
 
-      // Add error message
-      const errMsg = {
-        id: `error-${Date.now()}`,
-        content: 'Gửi thất bại. Vui lòng thử lại.',
+        // 3. Tin nhắn mới bình thường
+        const newMsg: ZaloMessage = {
+          id: data.msg_id || `ws-${Date.now()}`,
+          content: data.content,
+          is_self: !!data.is_self,
+          d_name: data.d_name,
+          ts: data.ts,
+          created_at: new Date(data.ts).toISOString(),
+          // Các trường khác nếu cần
+        };
+        return [...prevMsgs, newMsg];
+      });
+    }
+  };
+
+  const sendText = useCallback(
+    async (text: string) => {
+      if (!active) return;
+      const threadId = active.thread_id || "";
+      const accId = accountId;
+      if (!threadId) return;
+
+      // Track recently sent message for deduplication
+      const tid = String(threadId);
+      if (!recentlySentRef.current[tid]) {
+        recentlySentRef.current[tid] = [];
+      }
+      recentlySentRef.current[tid].push({
+        text,
+        time: Date.now(),
+      });
+
+      // optimistic append
+      const optimistic = {
+        id: `temp-${Date.now()}`,
+        content: text,
         is_self: true,
         ts: Date.now(),
         created_at: new Date().toISOString(),
       } as ZaloMessage;
-      setMessages(prev => [...prev, errMsg]);
-      throw e;
-    }
-  }, [active, accountId]);
+      setMessages((prev) => [...prev, optimistic]);
+
+      try {
+        console.log("ok");
+        // Option 1: Send via HTTP API (current method)
+        const res = await sendZaloTextMessage(threadId, text, accId);
+        console.log("res send text", res);
+
+        // Option 2: Also try to send via WebSocket if needed (for future use)
+        // sendMessageViaWebSocket({
+        //   type: 'message',
+        //   data: {
+        //     text,
+        //     thread_id: threadId,
+        //     account_id: accId,
+        //     timestamp: new Date().toISOString(),
+        //   }
+        // });
+
+        // WebSocket will receive the actual message, so we don't need to reload
+        // But we'll keep the optimistic message for a short time in case WebSocket is delayed
+        setTimeout(() => {
+          setMessages((prev) => {
+            const optimisticMsg = prev.find((m) => m.id === optimistic.id);
+            if (optimisticMsg && optimisticMsg.id.startsWith("temp-")) {
+              // If optimistic message still exists, keep it (WebSocket might be delayed)
+              return prev;
+            }
+            return prev;
+          });
+        }, 2000);
+      } catch (e) {
+        // Remove optimistic message on error
+        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+        // Remove from recently sent
+        const recent = recentlySentRef.current[tid] || [];
+        const idx = recent.findIndex((it) => it.text === text);
+        if (idx >= 0) recent.splice(idx, 1);
+        recentlySentRef.current[tid] = recent;
+
+        // Add error message
+        const errMsg = {
+          id: `error-${Date.now()}`,
+          content: "Gửi thất bại. Vui lòng thử lại.",
+          is_self: true,
+          ts: Date.now(),
+          created_at: new Date().toISOString(),
+        } as ZaloMessage;
+        setMessages((prev) => [...prev, errMsg]);
+        throw e;
+      }
+    },
+    [active, accountId]
+  );
 
   return {
     accountId,
@@ -490,6 +330,6 @@ export function useZaloConversations(defaultAccountId?: string) {
     setOrder,
     refreshList: () => loadConversations(accountId),
     refreshMessages: () => loadMessages(active || undefined),
-    sendText
+    sendText,
   };
 }
