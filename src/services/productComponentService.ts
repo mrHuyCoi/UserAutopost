@@ -187,4 +187,7 @@ export const productComponentService = {
   syncNowFromApi: async () => {
     return await apiPost('/product-components/sync-now', {});
   },
+  syncFromApi: async () => {
+    return await apiPost('/product-components/sync-from-api', {});
+  }
 };

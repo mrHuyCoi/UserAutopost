@@ -27,21 +27,31 @@ const UrlDevicesTab: React.FC = () => {
   const [filters, setFilters] = useState({});
   const [brands, setBrands] = useState<string[]>([]);
 
+// Effect 1: Reset về trang 1 khi thay đổi bộ lọc
   useEffect(() => {
-    deviceInfoService.getDistinctBrands().then(setBrands);
-  }, []);
-
-  useEffect(() => {
-    fetchDevices();
+    setPagination((p) => ({ ...p, page: 1 }));
   }, [searchTerm, filters, sortConfig]);
 
-  const fetchDevices = async () => {
+  // Effect 2: Gọi API khi page thay đổi (hoặc các điều kiện lọc thay đổi)
+  useEffect(() => {
+    fetchDevices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagination.page, searchTerm, filters, sortConfig]);
+
+ const fetchDevices = async () => {
     try {
       setIsLoading(true);
 
+      // --- SỬA ĐOẠN NÀY ---
+      // Đảm bảo kiểu dữ liệu là Number
+      const currentPage = Number(pagination.page) || 1;
+      const currentLimit = Number(pagination.limit) || 15;
+      const skip = (currentPage - 1) * currentLimit;
+      
       const params = new URLSearchParams();
-      params.append('skip', String((pagination.page - 1) * pagination.limit));
-      params.append('limit', String(pagination.limit));
+      params.append('skip', String(skip));
+      params.append('limit', String(currentLimit));
+      // --------------------
 
       if (searchTerm) params.append('search', searchTerm);
       Object.entries(filters).forEach(([k, v]) => v && params.append(k, String(v)));
@@ -66,12 +76,20 @@ const UrlDevicesTab: React.FC = () => {
       });
 
       setDevices(result);
-      setPagination((p) => ({ ...p, total: data.total, totalPages: data.totalPages }));
+      // Cập nhật totalPages an toàn
+      const totalItems = Number(data.total) || 0;
+      setPagination((p) => ({ 
+          ...p, 
+          total: totalItems, 
+          totalPages: data.totalPages ? Number(data.totalPages) : Math.ceil(totalItems / currentLimit)
+      }));
+    } catch (error) {
+        console.error(error);
+        Swal.fire("Lỗi", "Không thể tải danh sách thiết bị", "error");
     } finally {
       setIsLoading(false);
     }
   };
-
   const syncNow = async () => {
     try {
       setIsSyncing(true);
@@ -198,9 +216,14 @@ const UrlDevicesTab: React.FC = () => {
       {/* PAGINATION */}
       <div className="mt-4 flex justify-end">
         <Pagination
-          currentPage={pagination.page}
-          totalPages={pagination.totalPages}
-          onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
+          currentPage={Number(pagination.page)} // Ép kiểu
+          totalPages={Number(pagination.totalPages)} // Ép kiểu
+          onPageChange={(page) => {
+             const pageNum = Number(page);
+             if(!isNaN(pageNum) && pageNum > 0) {
+                 setPagination((prev) => ({ ...prev, page: pageNum }));
+             }
+          }}
         />
       </div>
     </div>
