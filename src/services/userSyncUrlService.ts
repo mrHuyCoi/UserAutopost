@@ -29,5 +29,30 @@ export const userSyncUrlService = {
     if (type_url) params.append('type_url', type_url);
     const qs = params.toString() ? `?${params.toString()}` : '';
     return await apiPost<unknown>(`/sync-url/sync-devices${qs}`, {});
-  }
+  },
+  // Add method to check synchronization status
+  checkStatus: async (type_url: string) => {
+    try {
+      const response = await fetch(`/api/v1/sync-url/status?type_url=${type_url}`);
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error checking sync status:", error);
+      throw new Error("Failed to check sync status");
+    }
+  },
+
+  // Add method for syncing components
+  syncComponents: async (updatedToday: boolean) => {
+    try {
+      const response = await fetch(`/api/v1/sync-url/sync-devices?updated_today=${updatedToday}`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error syncing components:", error);
+      throw new Error("Failed to sync components");
+    }
+  },
 };
