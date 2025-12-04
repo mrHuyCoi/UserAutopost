@@ -74,8 +74,8 @@ const ZaloTab: React.FC<ZaloTabProps> = ({ initialActiveTab }) => {
   const [isLoadingConversations, setIsLoadingConversations] =
     useState<boolean>(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState<boolean>(false);
-  // Use initialActiveTab directly instead of state since parent controls the view
-  const activeTab = initialActiveTab || "login";
+  // Use state for activeTab to allow switching between login and messages
+  const [activeTab, setActiveTab] = useState<"login" | "messages">(initialActiveTab || "login");
   const [activeDropdown, setActiveDropdown] = useState<number | null>(null);
   const [openConvMenu, setOpenConvMenu] = useState<string | null>(null);
   const [isCreatingStaff, setIsCreatingStaff] = useState<boolean>(false);
@@ -839,9 +839,14 @@ const ZaloTab: React.FC<ZaloTabProps> = ({ initialActiveTab }) => {
       loadSessions();
       // Also load ignored list to reflect block/unblock state in menus
       loadIgnored();
+      // Auto-switch to messages tab when login is successful
+      if (activeTab === "login") {
+        setActiveTab("messages");
+      }
       // If user is on Messages tab, list will be shown automatically
     }
-  }, [status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, activeTab]);
 
   // Reload data when switching accounts
   useEffect(() => {
@@ -1140,6 +1145,31 @@ const ZaloTab: React.FC<ZaloTabProps> = ({ initialActiveTab }) => {
 
   return (
     <div className="p-4 bg-white rounded-lg shadow-sm h-full">
+      {/* Tab Navigation */}
+      <div className="mb-4 flex gap-2 border-b border-gray-200">
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "login"
+              ? "border-blue-500 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+          onClick={() => setActiveTab("login")}
+        >
+          Đăng nhập
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "messages"
+              ? "border-blue-500 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700"
+          }`}
+          onClick={() => setActiveTab("messages")}
+          disabled={status !== "SessionSaved"}
+        >
+          Tin nhắn
+        </button>
+      </div>
+
       {activeTab === "login" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* QR Code Section */}
@@ -1213,7 +1243,13 @@ const ZaloTab: React.FC<ZaloTabProps> = ({ initialActiveTab }) => {
               )}
 
               {status === "SessionSaved" && (
-                <div className="mt-4">
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={() => setActiveTab("messages")}
+                    className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    <Smartphone size={16} /> Xem tin nhắn
+                  </button>
                   <button
                     onClick={handleLogout}
                     className="inline-flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
