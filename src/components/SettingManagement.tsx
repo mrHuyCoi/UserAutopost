@@ -10,6 +10,9 @@ import {
   FileUp,
   FileDown,
   RefreshCw,
+  HelpCircle,
+  Store,
+  Power,
 } from "lucide-react";
 import {
   faqMobileService,
@@ -756,22 +759,44 @@ const SettingsManagement: React.FC = () => {
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
         {[
-          { key: "faq" as const, label: "Quản lý câu hỏi thường gặp" },
-          { key: "store-info" as const, label: "Thông Tin Cửa Hàng" },
-          { key: "bot-control" as const, label: "Bật/Tắt Bot" },
-        ].map((t) => (
-          <button
-            key={t.key}
-            className={`px-6 py-3 font-medium text-sm whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === t.key
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-600 hover:text-gray-900"
-            }`}
-            onClick={() => setActiveTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
+          { 
+            key: "faq" as const, 
+            label: "Quản lý câu hỏi thường gặp",
+            icon: HelpCircle,
+            shortLabel: "FAQ"
+          },
+          { 
+            key: "store-info" as const, 
+            label: "Thông Tin Cửa Hàng",
+            icon: Store,
+            shortLabel: "Cửa hàng"
+          },
+          { 
+            key: "bot-control" as const, 
+            label: "Bật/Tắt Bot",
+            icon: Power,
+            shortLabel: "Bot"
+          },
+        ].map((t) => {
+          const Icon = t.icon;
+          const isActive = activeTab === t.key;
+          return (
+            <button
+              key={t.key}
+              className={`flex items-center gap-2 px-4 md:px-6 py-3 font-medium text-sm whitespace-nowrap border-b-2 transition-colors ${
+                isActive
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-600 hover:text-gray-900"
+              }`}
+              onClick={() => setActiveTab(t.key)}
+              title={t.label}
+            >
+              <Icon size={18} className="flex-shrink-0" />
+              <span className="hidden sm:inline">{t.label}</span>
+              <span className="sm:hidden">{t.shortLabel}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ===== FAQ Tab ===== */}
