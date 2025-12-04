@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Share2, 
   Users, 
@@ -26,6 +26,15 @@ import { useAuth } from '../hooks/useAuth';
 
 export const HomePage: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  const handleFreeTrialClick = () => {
+    if (isAuthenticated) {
+      navigate('/accounts');
+    } else {
+      navigate('/register');
+    }
+  };
   const features = [
     {
       icon: <Video className="text-white" size={24} />,
@@ -144,13 +153,13 @@ export const HomePage: React.FC = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-              <Link
-                to="/register"
+              <button
+                onClick={handleFreeTrialClick}
                 className="bg-blue-600 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-blue-700 transition-all duration-300 transform hover:-translate-y-1 flex items-center gap-2 shadow-lg hover:shadow-blue-200"
               >
                 <Play size={20} />
                 Miễn phí 14 ngày
-              </Link>
+              </button>
               
               <Link
                 to="/pricing"
@@ -306,13 +315,13 @@ export const HomePage: React.FC = () => {
             Tham gia cùng hàng nghìn doanh nghiệp đã tin tưởng AutoPost để tự động hóa marketing
           </p>
           
-          <Link
-            to="/register"
+          <button
+            onClick={handleFreeTrialClick}
             className="bg-white text-blue-600 px-8 py-4 rounded-xl font-semibold text-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex items-center gap-2 mx-auto w-fit"
           >
             <Zap size={20} />
             Dùng thử miễn phí
-          </Link>
+          </button>
         </div>
       </section>
 

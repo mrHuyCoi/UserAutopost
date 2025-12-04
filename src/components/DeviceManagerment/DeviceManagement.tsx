@@ -1,5 +1,5 @@
 // DeviceManagement.tsx
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useDeviceForms, usePagination, useSelection, useDeviceData } from './hooks';
 import { DeviceTabs } from './components/tabs/DeviceTabs';
 import { DeviceForm } from './components/forms/DeviceForm';
@@ -98,6 +98,11 @@ const DeviceManagement: React.FC = () => {
   const [colorIdForLink, setColorIdForLink] = useState<string>('');
   const [creatingDeviceColorLink, setCreatingDeviceColorLink] = useState(false);
   const [deviceColorFormError, setDeviceColorFormError] = useState<string | null>(null);
+  const [deviceOptionsForLink, setDeviceOptionsForLink] = useState<Array<{ id: string; model: string }>>([]);
+  const [colorOptionsForLink, setColorOptionsForLink] = useState<Array<{ id: string; name: string }>>([]);
+  const [loadingDeviceOptions, setLoadingDeviceOptions] = useState(false);
+  const [loadingColorOptions, setLoadingColorOptions] = useState(false);
+  const [selectedDeviceIdForReload, setSelectedDeviceIdForReload] = useState<string>('');
 
   // User Devices không cần filter ở client vì đã được filter ở server
   const filteredUserDevices = userDevices;
@@ -361,14 +366,24 @@ const DeviceManagement: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (activeSubTab === 'device-colors') {
-      fetchDeviceColors();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSubTab, deviceColorSearchTerm, deviceColorsPaginationState.pageNum, deviceColorsPaginationState.pageSize]);
+  // Device colors are now loaded by DeviceColorsTable when a device is selected
+  // useEffect(() => {
+  //   if (activeSubTab === 'device-colors') {
+  //     fetchDeviceColors();
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [activeSubTab, deviceColorSearchTerm, deviceColorsPaginationState.pageNum, deviceColorsPaginationState.pageSize]);
 
   // Device Colors handlers
+  const handleDeviceColorsChange = useCallback((colors: DeviceColorLink[]) => {
+    setDeviceColors(colors.map(item => ({ ...item, selected: false })));
+    setDeviceColorsPaginationState(prev => ({
+      ...prev,
+      total: colors.length,
+      totalPages: 1,
+    }));
+  }, []);
+
   const handleDeleteDeviceColor = async (id: string) => {
     try {
       setLoadingAction(true);
@@ -407,19 +422,40 @@ const DeviceManagement: React.FC = () => {
     },
   };
 
-  const handleOpenAddDeviceColorModal = () => {
-    if (deviceInfoOptions.length === 0) {
-      alert('Vui lòng tạo ít nhất một thiết bị trước khi liên kết màu sắc.');
-      return;
-    }
-    if (colorOptions.length === 0) {
-      alert('Vui lòng tạo ít nhất một màu sắc trước khi liên kết thiết bị.');
-      return;
-    }
+  const handleOpenAddDeviceColorModal = async () => {
+    setLoadingDeviceOptions(true);
+    setLoadingColorOptions(true);
     setDeviceColorFormError(null);
-    setDeviceInfoIdForLink((prev) => prev || deviceInfoOptions[0]?.id || '');
-    setColorIdForLink((prev) => prev || colorOptions[0]?.id || '');
-    setShowAddDeviceColorModal(true);
+    
+    try {
+      // Load devices and colors from API
+      const [devices, colors] = await Promise.all([
+        deviceInfoService.getDeviceInfosToSelect(),
+        colorService.getColorToSelect(),
+      ]);
+      
+      setDeviceOptionsForLink(devices);
+      setColorOptionsForLink(colors);
+      
+      if (devices.length === 0) {
+        alert('Vui lòng tạo ít nhất một thiết bị trước khi liên kết màu sắc.');
+        return;
+      }
+      if (colors.length === 0) {
+        alert('Vui lòng tạo ít nhất một màu sắc trước khi liên kết thiết bị.');
+        return;
+      }
+      
+      setDeviceInfoIdForLink(devices[0]?.id || '');
+      setColorIdForLink(colors[0]?.id || '');
+      setShowAddDeviceColorModal(true);
+    } catch (error) {
+      console.error('Error loading options:', error);
+      setDeviceColorFormError('Không thể tải danh sách thiết bị hoặc màu sắc.');
+    } finally {
+      setLoadingDeviceOptions(false);
+      setLoadingColorOptions(false);
+    }
   };
 
   const handleCloseAddDeviceColorModal = () => {
@@ -441,7 +477,15 @@ const DeviceManagement: React.FC = () => {
       await deviceColorService.addDeviceColor(deviceInfoIdForLink, colorIdForLink);
       alert('Thêm liên kết màu sắc - thiết bị thành công');
       handleCloseAddDeviceColorModal();
-      await fetchDeviceColors();
+      // Reload colors if a device is selected
+      if (selectedDeviceIdForReload) {
+        try {
+          const colors = await deviceColorService.getDeviceColorsByDeviceInfoId(selectedDeviceIdForReload);
+          handleDeviceColorsChange(colors);
+        } catch (error) {
+          console.error('Failed to reload device colors after add:', error);
+        }
+      }
     } catch (error: any) {
       console.error('Error creating device color link:', error);
       setDeviceColorFormError(error?.message || 'Không thể tạo liên kết màu sắc - thiết bị.');
@@ -1128,40 +1172,54 @@ const DeviceManagement: React.FC = () => {
                   <label htmlFor="deviceInfo" className="block text-sm font-medium text-gray-700">
                     Thiết bị
                   </label>
-                  <select
-                    id="deviceInfo"
-                    value={deviceInfoIdForLink}
-                    onChange={(event) => setDeviceInfoIdForLink(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                    disabled={creatingDeviceColorLink}
-                    required
-                  >
-                    {deviceInfoOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  {loadingDeviceOptions ? (
+                    <div className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-500">
+                      Đang tải danh sách thiết bị...
+                    </div>
+                  ) : (
+                    <select
+                      id="deviceInfo"
+                      value={deviceInfoIdForLink}
+                      onChange={(event) => setDeviceInfoIdForLink(event.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                      disabled={creatingDeviceColorLink || loadingDeviceOptions}
+                      required
+                    >
+                      <option value="">-- Chọn thiết bị --</option>
+                      {deviceOptionsForLink.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.model}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <label htmlFor="color" className="block text-sm font-medium text-gray-700">
                     Màu sắc
                   </label>
-                  <select
-                    id="color"
-                    value={colorIdForLink}
-                    onChange={(event) => setColorIdForLink(event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                    disabled={creatingDeviceColorLink}
-                    required
-                  >
-                    {colorOptions.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  {loadingColorOptions ? (
+                    <div className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-500">
+                      Đang tải danh sách màu sắc...
+                    </div>
+                  ) : (
+                    <select
+                      id="color"
+                      value={colorIdForLink}
+                      onChange={(event) => setColorIdForLink(event.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                      disabled={creatingDeviceColorLink || loadingColorOptions}
+                      required
+                    >
+                      <option value="">-- Chọn màu sắc --</option>
+                      {colorOptionsForLink.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 {deviceColorFormError && (
@@ -1289,6 +1347,7 @@ const DeviceManagement: React.FC = () => {
           onSearchDeviceColors={handleSearchDeviceColors}
           deviceColorSearchTerm={deviceColorSearchTerm}
           onAddDeviceColorLink={handleOpenAddDeviceColorModal}
+          onDeviceColorsChange={handleDeviceColorsChange}
         />
       </div>
     </div>

@@ -106,6 +106,8 @@ interface DeviceTabsProps {
   onSearchDeviceColors: (term: string) => void;
   deviceColorSearchTerm: string;
   onAddDeviceColorLink: () => void;
+  onDeviceColorsChange?: (deviceColors: DeviceColorLink[]) => void;
+  onAfterAddDeviceColor?: () => void;
 }
 
 export const DeviceTabs: React.FC<DeviceTabsProps> = ({
@@ -194,6 +196,7 @@ export const DeviceTabs: React.FC<DeviceTabsProps> = ({
   onSearchDeviceColors,
   deviceColorSearchTerm,
   onAddDeviceColorLink,
+  onDeviceColorsChange,
 }) => {
   const tabs = [
     { id: 'my-devices' as SubTabType, label: 'Thiết bị của tôi' },
@@ -368,6 +371,7 @@ export const DeviceTabs: React.FC<DeviceTabsProps> = ({
               searchTerm={deviceColorSearchTerm}
               onSearchChange={onSearchDeviceColors}
               onAddDeviceColorLink={onAddDeviceColorLink}
+              onDeviceColorsChange={onDeviceColorsChange}
             />
           </div>
         )}

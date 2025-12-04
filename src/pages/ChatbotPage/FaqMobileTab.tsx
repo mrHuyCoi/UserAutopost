@@ -340,6 +340,86 @@ const FaqMobileTab: React.FC<FaqMobileTabProps> = () => {
     return imageString.split(',').map(url => url.trim()).filter(url => url.length > 0);
   };
 
+  // Helper function to parse and render content that may contain image JSON
+  const parseContentForDisplay = (text: string) => {
+    if (!text) return { isImage: false, text: '', imageUrl: '', fullImageUrl: '', title: '' };
+    
+    // Try to parse as JSON if it starts with {
+    if (text.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(text);
+        
+        // Check if it's an image (has url, thumb, or type === 'photo')
+        if (parsed && (parsed.url || parsed.thumb || parsed.type === 'photo')) {
+          // Try to get additional info from params if available
+          let paramsData: any = null;
+          if (parsed.params) {
+            try {
+              paramsData = typeof parsed.params === 'string' 
+                ? JSON.parse(parsed.params) 
+                : parsed.params;
+            } catch {
+              // Ignore parse error
+            }
+          }
+          
+          // Extract image URL (prefer thumb for preview, hd/url for full size)
+          const imageUrl = parsed.thumb || parsed.url || paramsData?.hd || paramsData?.rawUrl;
+          const fullImageUrl = paramsData?.hd || paramsData?.rawUrl || parsed.url || parsed.thumb;
+          const title = parsed.title || '';
+          
+          return {
+            isImage: true,
+            text: title || '',
+            imageUrl,
+            fullImageUrl,
+            title
+          };
+        }
+      } catch {
+        // Not valid JSON or not an image, fall through to text
+      }
+    }
+    
+    return {
+      isImage: false,
+      text,
+      imageUrl: '',
+      fullImageUrl: '',
+      title: ''
+    };
+  };
+
+  // Component to render FAQ content (text or image)
+  const FAQContentDisplay: React.FC<{ content: string }> = ({ content }) => {
+    const parsed = parseContentForDisplay(content);
+    
+    if (parsed.isImage && parsed.imageUrl) {
+      return (
+        <div className="space-y-1">
+          <a 
+            href={parsed.fullImageUrl || parsed.imageUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-block"
+          >
+            <img
+              src={parsed.imageUrl}
+              alt={parsed.title || 'Ảnh'}
+              className="rounded-md border border-gray-200 max-w-full h-auto"
+              style={{ maxHeight: '100px', maxWidth: '200px' }}
+            />
+          </a>
+          {parsed.title && (
+            <div className="text-xs text-gray-600">{parsed.title}</div>
+          )}
+        </div>
+      );
+    }
+    
+    return <div className="whitespace-pre-wrap">{parsed.text}</div>;
+  };
+
   // Render images component
   const renderImages = (imageString?: string, isEditing: boolean = false, files: File[] = [], onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void, onRemove?: (index: number) => void) => {
     const imageUrls = parseImageUrls(imageString);
@@ -604,7 +684,9 @@ const FaqMobileTab: React.FC<FaqMobileTabProps> = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
                         />
                       ) : (
-                        <div className="text-sm text-gray-900 whitespace-pre-wrap">{faq.question || ''}</div>
+                        <div className="text-sm text-gray-900">
+                          <FAQContentDisplay content={faq.question || ''} />
+                        </div>
                       )}
                     </td>
                     <td className="px-6 py-4">
@@ -616,7 +698,9 @@ const FaqMobileTab: React.FC<FaqMobileTabProps> = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
                         />
                       ) : (
-                        <div className="text-sm text-gray-700 whitespace-pre-wrap">{faq.answer || ''}</div>
+                        <div className="text-sm text-gray-700">
+                          <FAQContentDisplay content={faq.answer || ''} />
+                        </div>
                       )}
                     </td>
                     <td className="px-6 py-4 text-center">

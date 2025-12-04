@@ -89,38 +89,15 @@ export const listOaConversations = async (
   account_id: string,
   params?: { limit?: number; offset?: number; search?: string }
 ): Promise<{ data: OaConversationItem[]; total: number }> => {
-  // Use OpenAPI recent chats endpoint instead of internal DB list.
+  // Use new /conversations endpoint according to API documentation
   const qs = new URLSearchParams();
   qs.set('account_id', account_id);
-  // OpenAPI supports offset/count with max 10; fall back to 10 if larger
-  const count = params?.limit && params.limit > 0 ? Math.min(params.limit, 10) : 10;
-  const offset = params?.offset && params.offset > 0 ? params.offset : 0;
-  qs.set('offset', String(offset));
-  qs.set('count', String(count));
-  const res = await apiGet<ResponseModel<ZaloOpenApiRecentChatResponse>>(`/zalo-oa/openapi/listrecentchat?${qs.toString()}`);
-  const raw: ZaloOpenApiRecentChatResponse = res.data ?? {};
-  const items: ZaloOpenApiMessageItem[] = Array.isArray(raw.data) ? raw.data : [];
-  let mapped: OaConversationItem[] = items.map((m) => {
-    const userId = m.src === 0 ? m.to_id : m.from_id;
-    const displayName = m.src === 0 ? m.to_display_name : m.from_display_name;
-    return {
-      id: String(userId),
-      conversation_id: String(userId),
-      display_name: displayName || String(userId),
-      type: 'peer',
-      last_message_at: m.time ? new Date(Number(m.time)).toISOString() : null,
-      is_ignored: false,
-      is_blocked: false,
-    };
-  });
-  const q = (params?.search || '').trim().toLowerCase();
-  if (q) {
-    mapped = mapped.filter(it =>
-      (it.display_name || '').toLowerCase().includes(q) ||
-      (it.conversation_id || '').toLowerCase().includes(q)
-    );
-  }
-  return { data: mapped, total: mapped.length };
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.offset) qs.set('offset', String(params.offset));
+  if (params?.search) qs.set('search', params.search);
+  
+  const res = await apiGet<ResponseModel<OaConversationItem[]>>(`/zalo-oa/conversations?${qs.toString()}`);
+  return { data: res.data ?? [], total: res.total ?? 0 };
 };
 
 export const listOaMessages = async (
@@ -128,6 +105,7 @@ export const listOaMessages = async (
   conversation_id: string,
   params?: { limit?: number; offset?: number; order?: 'asc' | 'desc' }
 ): Promise<{ data: OaMessageItem[]; total: number }> => {
+  // Use /messages endpoint according to API documentation
   const search = new URLSearchParams();
   search.set('account_id', account_id);
   search.set('conversation_id', conversation_id);
@@ -171,7 +149,7 @@ export const getOaMe = async (account_id: string) => {
 };
 
 export const patchOaConversation = async (conv_id: string, body: Partial<{ is_ignored: boolean; is_blocked: boolean }>) => {
-  const headers = getAuthHeader();
+  const headers = await getAuthHeader();
   const resp = await fetch(`${API_BASE_URL}/api/v1/zalo-oa/conversations/${conv_id}`, {
     method: 'PATCH',
     headers,

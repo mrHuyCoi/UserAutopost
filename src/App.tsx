@@ -197,7 +197,9 @@ function App() {
           path="/integration" 
           element={
             <ProtectedRoute>
-              <ApiIntegrationPage />
+              <MainLayout>
+                <ApiIntegrationPage />
+              </MainLayout>
             </ProtectedRoute>
           } 
         />

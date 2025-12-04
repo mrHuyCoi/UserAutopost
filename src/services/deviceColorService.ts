@@ -155,6 +155,21 @@ export const deviceColorService = {
       return true;
     }
   },
+
+  async getDeviceColorsByDeviceInfoId(deviceInfoId: string): Promise<DeviceColorLink[]> {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/api/v1/device-colors/device/${deviceInfoId}/with-color`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        ...NGROK_SKIP_HEADER
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch device colors by device info id');
+    }
+    const data = await response.json();
+    return data.data || [];
+  },
 };
 
 export type { DeviceColorLink, DeviceColorLinksResponse };

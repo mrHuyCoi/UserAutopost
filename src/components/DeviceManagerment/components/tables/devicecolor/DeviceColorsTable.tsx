@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   CheckSquare,
   Square,
@@ -6,11 +6,12 @@ import {
   Eye,
   EyeOff,
   Trash2,
-  Search,
   Plus,
 } from "lucide-react";
 import type { DeviceColorLink } from "../../../types";
 import { Pagination, type AnyPagination } from "../../common/Pagination";
+import { deviceInfoService } from "../../../../../services/deviceInfoService";
+import { deviceColorService } from "../../../../../services/deviceColorService";
 
 const ALL_COLUMNS = [
   { key: "device_brand", label: "Thương hiệu" },
@@ -89,6 +90,8 @@ interface DeviceColorsTableProps {
   searchTerm: string;
   onSearchChange: (term: string) => void;
   onAddDeviceColorLink?: () => void;
+  onDeviceColorsChange?: (deviceColors: DeviceColorLink[]) => void;
+  onAfterAddDeviceColor?: () => void;
 }
 
 const DeviceColorsTable: React.FC<DeviceColorsTableProps> = ({
@@ -101,17 +104,66 @@ const DeviceColorsTable: React.FC<DeviceColorsTableProps> = ({
   onPageChange,
   onItemsPerPageChange,
   onDeleteDeviceColor,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   searchTerm,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onSearchChange,
   onAddDeviceColorLink,
+  onDeviceColorsChange,
 }) => {
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
     () => ALL_COLUMNS.reduce((acc, c) => ({ ...acc, [c.key]: true }), {})
   );
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  const [deviceOptions, setDeviceOptions] = useState<Array<{ id: string; model: string }>>([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+  const [loadingColors, setLoadingColors] = useState(false);
+
+  // Load device options on mount
+  useEffect(() => {
+    const loadDeviceOptions = async () => {
+      setLoadingDevices(true);
+      try {
+        const devices = await deviceInfoService.getDeviceInfosToSelect();
+        setDeviceOptions(devices);
+      } catch (error) {
+        console.error('Failed to load device options:', error);
+      } finally {
+        setLoadingDevices(false);
+      }
+    };
+    loadDeviceOptions();
+  }, []);
+
+  // Load colors when device is selected
+  useEffect(() => {
+    if (selectedDeviceId) {
+      const loadDeviceColors = async () => {
+        setLoadingColors(true);
+        try {
+          const colors = await deviceColorService.getDeviceColorsByDeviceInfoId(selectedDeviceId);
+          // Update parent component with new colors
+          if (onDeviceColorsChange) {
+            onDeviceColorsChange(colors);
+          }
+        } catch (error) {
+          console.error('Failed to load device colors:', error);
+        } finally {
+          setLoadingColors(false);
+        }
+      };
+      loadDeviceColors();
+    } else {
+      // Clear colors when no device is selected
+      if (onDeviceColorsChange) {
+        onDeviceColorsChange([]);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDeviceId]); // Only depend on selectedDeviceId to avoid infinite loop
 
   const displayedDeviceColors = deviceColors;
-
   const totalItems = pagination?.totalItems ?? 0;
   const uiPagination = pagination;
 
@@ -119,11 +171,22 @@ const DeviceColorsTable: React.FC<DeviceColorsTableProps> = ({
   const truncateText = (text?: string, maxLength: number = 25) =>
     !text ? "-" : text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
 
-  const handleDeleteDeviceColor = (deviceColor: DeviceColorLink) => {
+  const handleDeleteDeviceColor = async (deviceColor: DeviceColorLink) => {
     const deviceName = deviceColor.device_info?.model || 'thiết bị';
     const colorName = deviceColor.color?.name || 'màu sắc';
     if (window.confirm(`Bạn có chắc chắn muốn xóa liên kết giữa "${deviceName}" và "${colorName}"?`)) {
-      onDeleteDeviceColor?.(deviceColor.id);
+      try {
+        await onDeleteDeviceColor?.(deviceColor.id);
+        // Reload colors after deletion
+        if (selectedDeviceId) {
+          const colors = await deviceColorService.getDeviceColorsByDeviceInfoId(selectedDeviceId);
+          if (onDeviceColorsChange) {
+            onDeviceColorsChange(colors);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to delete device color:', error);
+      }
     }
   };
 
@@ -148,20 +211,27 @@ const DeviceColorsTable: React.FC<DeviceColorsTableProps> = ({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      {/* Search Bar */}
+      {/* Device Selection */}
       <div className="px-3 sm:px-4 py-3 border-b border-gray-200 bg-gray-50">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex-1 min-w-[200px] sm:max-w-xs w-full">
-            <div className="relative">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Tìm theo tên màu, model..."
-                className="w-full pl-8 pr-3 py-2 text-xs font-medium text-gray-700 bg-white border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Chọn thiết bị</label>
+            <select
+              value={selectedDeviceId}
+              onChange={(e) => setSelectedDeviceId(e.target.value)}
+              disabled={loadingDevices}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="">-- Chọn thiết bị --</option>
+              {deviceOptions.map((device) => (
+                <option key={device.id} value={device.id}>
+                  {device.model}
+                </option>
+              ))}
+            </select>
+            {loadingDevices && (
+              <p className="text-xs text-gray-500 mt-1">Đang tải danh sách thiết bị...</p>
+            )}
           </div>
           <div className="flex w-full sm:w-auto sm:justify-end">
             <button
@@ -243,15 +313,25 @@ const DeviceColorsTable: React.FC<DeviceColorsTableProps> = ({
           </thead>
 
           <tbody className="divide-y divide-gray-200">
-            {displayedDeviceColors.length === 0 && (
+            {loadingColors && (
+              <tr>
+                <td colSpan={Object.values(visibleColumns).filter(Boolean).length + 2} className="text-center py-10">
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    <span className="ml-3 text-gray-500">Đang tải màu sắc...</span>
+                  </div>
+                </td>
+              </tr>
+            )}
+            {!loadingColors && displayedDeviceColors.length === 0 && (
               <tr>
                 <td colSpan={Object.values(visibleColumns).filter(Boolean).length + 2} className="text-center py-10 text-gray-500">
-                  Không tìm thấy liên kết thiết bị - màu sắc nào.
+                  {selectedDeviceId ? 'Không tìm thấy liên kết thiết bị - màu sắc nào.' : 'Vui lòng chọn thiết bị để xem màu sắc.'}
                 </td>
               </tr>
             )}
 
-            {displayedDeviceColors.map((deviceColor) => (
+            {!loadingColors && displayedDeviceColors.map((deviceColor) => (
               <React.Fragment key={deviceColor.id}>
                 <tr className="hover:bg-gray-50 transition-colors">
                   <td className="px-3 py-3">
@@ -319,7 +399,20 @@ const DeviceColorsTable: React.FC<DeviceColorsTableProps> = ({
 
       {/* Mobile view */}
       <div className="lg:hidden">
-        {displayedDeviceColors.map((deviceColor) => {
+        {loadingColors && (
+          <div className="p-4 text-center">
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              <span className="ml-3 text-gray-500">Đang tải màu sắc...</span>
+            </div>
+          </div>
+        )}
+        {!loadingColors && displayedDeviceColors.length === 0 && (
+          <div className="p-4 text-center text-gray-500">
+            {selectedDeviceId ? 'Không tìm thấy liên kết thiết bị - màu sắc nào.' : 'Vui lòng chọn thiết bị để xem màu sắc.'}
+          </div>
+        )}
+        {!loadingColors && displayedDeviceColors.map((deviceColor) => {
           const isExpanded = expandedRow === deviceColor.id;
           return (
             <div key={deviceColor.id} className="border-b border-gray-200 last:border-b-0 p-3">

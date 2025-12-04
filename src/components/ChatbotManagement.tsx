@@ -749,13 +749,23 @@ const ChatbotManagement: React.FC = () => {
                   </p>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">System Prompt</label>
-                    <textarea
-                      readOnly
-                      rows={12}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-100 cursor-not-allowed"
-                      value={`**QUY TẮC BẮT BUỘC PHẢI TUÂN THEO:**\n\n1. **Sản phẩm có nhiều model, combo, cỡ, màu sắc,... (tùy thuộc tính):**\n   - Khi giới thiệu lần đầu, chỉ nói tên sản phẩm chính và hãy thông báo có nhiều màu hoặc có nhiều model hoặc có nhiều cỡ,... (tùy vào thuộc tính của sản phẩm).\n   - **Khi khách hỏi trực tiếp về số lượng** (ví dụ: "chỉ có 3 màu thôi à?"), bạn phải trả lời thẳng vào câu hỏi.`}
-                    />
-                    <div className="text-xs text-gray-500 text-right mt-2">3.676 ký tự</div>
+                    {(() => {
+                      const systemPromptValue = `**QUY TẮC BẮT BUỘC PHẢI TUÂN THEO:**\n\n1. **Sản phẩm có nhiều model, combo, cỡ, màu sắc,... (tùy thuộc tính):**\n   - Khi giới thiệu lần đầu, chỉ nói tên sản phẩm chính và hãy thông báo có nhiều màu hoặc có nhiều model hoặc có nhiều cỡ,... (tùy vào thuộc tính của sản phẩm).\n   - **Khi khách hỏi trực tiếp về số lượng** (ví dụ: "chỉ có 3 màu thôi à?"), bạn phải trả lời thẳng vào câu hỏi.`;
+                      const characterCount = systemPromptValue.length;
+                      return (
+                        <>
+                          <textarea
+                            readOnly
+                            rows={12}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-100 cursor-not-allowed"
+                            value={systemPromptValue}
+                          />
+                          <div className="text-xs text-gray-500 text-right mt-2">
+                            {characterCount.toLocaleString('vi-VN')} ký tự
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 

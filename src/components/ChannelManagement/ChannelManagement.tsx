@@ -154,20 +154,53 @@ const ChannelManagement: React.FC = () => {
     });
   };
 
-  const sendZaloMessage = async (_conversationId: string, messageText: string) => {
-    if (!messageText.trim() || !zaloConversationsHook.active) return;
+  // Helper function: Send Zalo message directly via API (independent of hook state)
+  const sendZaloMessageDirect = async (threadId: string, messageText: string, accountId?: string) => {
+    if (!messageText.trim() || !threadId) {
+      console.error('Missing threadId or messageText for sending Zalo message');
+      return;
+    }
 
     try {
+      const { sendZaloTextMessage } = await import('../../services/zaloService');
+      await sendZaloTextMessage(String(threadId), messageText, accountId);
+    } catch (error) {
+      console.error('Error sending Zalo message:', error);
+      throw error;
+    }
+  };
+
+  // Send Zalo message - uses hook if active conversation exists, otherwise requires threadId/accountId
+  const sendZaloMessage = async (
+    _conversationId: string, 
+    messageText: string,
+    options?: { threadId?: string; accountId?: string }
+  ) => {
+    if (!messageText.trim()) return;
+
+    try {
+      // If threadId and accountId provided, send directly
+      if (options?.threadId) {
+        await sendZaloMessageDirect(options.threadId, messageText, options.accountId);
+        return;
+      }
+
+      // Otherwise, use hook if active conversation exists
+      if (!zaloConversationsHook.active) {
+        console.error('No active Zalo conversation and no threadId provided');
+        return;
+      }
+
       const threadId = zaloConversationsHook.active.thread_id;
       if (!threadId) {
-        console.error('No thread_id found for conversation');
+        console.error('No thread_id found for active conversation');
         return;
       }
 
       await zaloConversationsHook.sendText(messageText);
     } catch (error) {
       console.error('Error sending Zalo message:', error);
-      // Error is already handled in the hook
+      // Error is already handled in the hook or thrown from sendZaloMessageDirect
     }
   };
 
@@ -422,19 +455,63 @@ const ChannelManagement: React.FC = () => {
 
   const sendMessageToAllConversation = async (conversationId: string, messageText: string) => {
     const conversation = allConversations.find(conv => conv.id === conversationId);
-    if (!conversation) return;
+    if (!conversation || !messageText.trim()) return;
 
-    // Determine channel type and call appropriate send function
-    if (conversation.channel === 'zalo') {
-      sendZaloMessage(conversationId, messageText);
-    } else if (conversation.channel === 'zalo-oa') {
-      sendZaloOAMessage(conversationId, messageText);
-    } else if (conversation.channel === 'messenger') {
-      sendMessengerMessage(conversationId, messageText);
+    // Optimistic update: Thêm tin nhắn vào UI ngay lập tức
+    const optimisticMessage: Message = {
+      id: `temp-${Date.now()}`,
+      text: messageText,
+      time: new Date().toISOString(),
+      sender: 'bot', // Tin nhắn mình gửi -> sender = 'bot' để hiển thị bên phải (màu xanh)
+    };
+
+    // Add optimistic message vào danh sách hiện có
+    setAllConversationMessages(prev => {
+      const currentMessages = prev[conversationId] || [];
+      return {
+        ...prev,
+        [conversationId]: [...currentMessages, optimisticMessage],
+      };
+    });
+
+    try {
+      // Determine channel type and call appropriate send function
+      if (conversation.channel === 'zalo') {
+        // Extract threadId and accountId from conversation metadata
+        const convWithMeta = conversation as Conversation & {
+          thread_id?: string;
+          account_id?: string;
+        };
+        
+        const threadId = convWithMeta.thread_id || conversation.id.split('-')[0] || conversation.id;
+        const accountId = convWithMeta.account_id || 
+          channels.find(c => c.type === 'zalo' && c.status === 'connected' && c.phone)?.phone;
+
+        if (!threadId) {
+          console.error('No thread_id found for Zalo conversation');
+          // Xóa optimistic message nếu lỗi
+          setAllConversationMessages(prev => ({
+            ...prev,
+            [conversationId]: (prev[conversationId] || []).filter(m => m.id !== optimisticMessage.id),
+          }));
+          return;
+        }
+
+        await sendZaloMessageDirect(threadId, messageText, accountId);
+        // ✅ THÀNH CÔNG: Tin nhắn optimistic đã được thêm vào UI, không cần reload
+      } else if (conversation.channel === 'zalo-oa') {
+        await sendZaloOAMessage(conversationId, messageText);
+      } else if (conversation.channel === 'messenger') {
+        await sendMessengerMessage(conversationId, messageText);
+      }
+    } catch (error) {
+      console.error('Error sending message in all-conversations view:', error);
+      // Xóa optimistic message khi có lỗi
+      setAllConversationMessages(prev => ({
+        ...prev,
+        [conversationId]: (prev[conversationId] || []).filter(m => m.id !== optimisticMessage.id),
+      }));
     }
-    
-    // Reload messages after sending
-    await loadMessagesForConversation(conversation);
   };
 
   const handleConnectChannel = (channelId: string) => {
@@ -554,8 +631,10 @@ const ChannelManagement: React.FC = () => {
 
   // Send message based on channel type
   const sendMessageByChannelType = (channelType: 'zalo' | 'zalo-oa' | 'messenger', conversationId: string, messageText: string) => {
+    console.log("ok4", channelType, conversationId, messageText);
     switch (channelType) {
       case 'zalo':
+        console.log("ok3");
         sendZaloMessage(conversationId, messageText);
         break;
       case 'zalo-oa':

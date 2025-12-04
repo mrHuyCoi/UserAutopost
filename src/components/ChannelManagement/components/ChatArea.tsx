@@ -34,12 +34,23 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   }, [message]);
 
   const handleSendMessage = () => {
-    if (!message.trim()) return;
-    onSendMessage(message);
-    setMessage('');
-    // Reset textarea height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+    if (!message.trim()) {
+      console.log('Message is empty, not sending');
+      return;
+    }
+    console.log('Sending message:', message);
+    try {
+      console.log("ok1");
+
+      onSendMessage(message);
+      console.log("ok2");
+      setMessage('');
+      // Reset textarea height
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+    } catch (error) {
+      console.error('Error in handleSendMessage:', error);
     }
   };
 
@@ -51,7 +62,113 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   };
 
   const formatTime = (time: string) => {
-    return time;
+    if (!time) return '';
+    
+    try {
+      const date = new Date(time);
+      if (isNaN(date.getTime())) return time;
+      
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      
+      // Nếu là hôm nay: chỉ hiển thị giờ (HH:mm)
+      if (messageDate.getTime() === today.getTime()) {
+        return date.toLocaleTimeString('vi-VN', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false
+        });
+      }
+      
+      // Nếu là hôm qua: hiển thị "Hôm qua HH:mm"
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (messageDate.getTime() === yesterday.getTime()) {
+        return `Hôm qua ${date.toLocaleTimeString('vi-VN', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false
+        })}`;
+      }
+      
+      // Nếu là tuần này: hiển thị "Thứ X HH:mm"
+      const diffDays = Math.floor((today.getTime() - messageDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays < 7) {
+        const dayNames = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
+        return `${dayNames[date.getDay()]} ${date.toLocaleTimeString('vi-VN', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false
+        })}`;
+      }
+      
+      // Nếu xa hơn: hiển thị "DD/MM/YYYY HH:mm"
+      return date.toLocaleString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } catch {
+      return time;
+    }
+  };
+
+  // Helper function to parse and detect image content
+  const parseMessageContent = (text: string) => {
+    // Try to parse as JSON if it starts with {
+    if (text.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(text);
+        
+        // Check if it's an image (has url, thumb, or type === 'photo')
+        if (parsed && (parsed.url || parsed.thumb || parsed.type === 'photo')) {
+          // Try to get additional info from params if available
+          let paramsData: any = null;
+          if (parsed.params) {
+            try {
+              paramsData = typeof parsed.params === 'string' 
+                ? JSON.parse(parsed.params) 
+                : parsed.params;
+            } catch {
+              // Ignore parse error
+            }
+          }
+          
+          // Extract image URL (prefer thumb for preview, hd/url for full size)
+          const imageUrl = parsed.thumb || parsed.url || paramsData?.hd || paramsData?.rawUrl;
+          const fullImageUrl = paramsData?.hd || paramsData?.rawUrl || parsed.url || parsed.thumb;
+          
+          // Extract title and description
+          const title = parsed.title || '';
+          const description = parsed.description || '';
+          
+          // Try to get dimensions from params or top level
+          const width = paramsData?.width || parsed.width;
+          const height = paramsData?.height || parsed.height;
+          
+          return {
+            isImage: true,
+            imageUrl,
+            fullImageUrl,
+            title,
+            description,
+            width,
+            height
+          };
+        }
+      } catch {
+        // Not valid JSON or not an image, fall through to text
+      }
+    }
+    
+    return {
+      isImage: false,
+      text
+    };
   };
 
   return (
@@ -73,7 +190,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           </div>
         </div>
         <div className="text-xs text-gray-500 hidden sm:block">
-          Zalo - 0987654321
+          Zalo
         </div>
       </div>
 
@@ -87,22 +204,22 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             return (
               <div
                 key={msg.id}
-                className={`flex gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}
+                className={`flex gap-2 ${isUser ? 'justify-start' : 'justify-end'}`}
               >
                 {/* Avatar for received messages */}
-                {!isUser && showAvatar && (
+                {isUser && showAvatar && (
                   <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
                     {conversation.avatar}
                   </div>
                 )}
                 
-                {!isUser && !showAvatar && (
+                {isUser && !showAvatar && (
                   <div className="w-8 flex-shrink-0"></div>
                 )}
 
                 {/* Message Bubble */}
-                <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-[70%]`}>
-                  {!isUser && showAvatar && (
+                <div className={`flex flex-col ${isUser ? 'items-start' : 'items-end'} max-w-[70%]`}>
+                  {isUser && showAvatar && (
                     <div className="text-xs text-gray-500 mb-1 ml-2">
                       {conversation.name}
                     </div>
@@ -111,13 +228,58 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   <div
                     className={`relative group p-3 rounded-2xl ${
                       isUser
-                        ? 'bg-blue-500 text-white rounded-br-md'
-                        : 'bg-white text-gray-800 rounded-bl-md shadow-sm'
-                    } ${showAvatar ? (isUser ? 'rounded-tr-md' : 'rounded-tl-md') : 'rounded-t-md'}`}
+                        ? 'bg-white text-gray-800 rounded-bl-md shadow-sm'
+                        : 'bg-blue-500 text-white rounded-br-md'
+                    } ${showAvatar ? (isUser ? 'rounded-tl-md' : 'rounded-tr-md') : 'rounded-t-md'}`}
                   >
-                    <div className="text-sm sm:text-base leading-relaxed">
-                      {msg.text}
-                    </div>
+                    {(() => {
+                      const content = parseMessageContent(msg.text);
+                      
+                      if (content.isImage) {
+                        return (
+                          <div className="space-y-2">
+                            {content.imageUrl && (
+                              <a 
+                                href={content.fullImageUrl || content.imageUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-block"
+                              >
+                                <img
+                                  src={content.imageUrl}
+                                  alt={content.title || 'Ảnh'}
+                                  className="rounded-md border border-gray-200 max-w-full h-auto"
+                                  style={{ 
+                                    maxHeight: '40vh',
+                                    maxWidth: '100%'
+                                  }}
+                                />
+                              </a>
+                            )}
+                            {content.title && (
+                              <div className={`text-sm font-medium ${
+                                isUser ? 'text-white' : 'text-gray-800'
+                              }`}>
+                                {content.title}
+                              </div>
+                            )}
+                            {content.description && (
+                              <div className={`text-xs ${
+                                isUser ? 'text-blue-100' : 'text-gray-600'
+                              }`}>
+                                {content.description}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <div className="text-sm sm:text-base leading-relaxed">
+                          {content.text}
+                        </div>
+                      );
+                    })()}
                     
                     {/* Time */}
                     <div className={`text-xs mt-2 flex items-center gap-1 ${

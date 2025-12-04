@@ -126,6 +126,20 @@ const formatDuration = (plan: Plan) => {
     return '';
 };
 
+const calculateRemainingDays = (endDate: string): number | null => {
+    if (!endDate) return null;
+    try {
+        const end = new Date(endDate);
+        const now = new Date();
+        const diffTime = end.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 ? diffDays : 0;
+    } catch (error) {
+        console.error('Error calculating remaining days:', error);
+        return null;
+    }
+};
+
 // Icon components để thay thế Font Awesome
 const StarIcon = () => (
   <svg className="w-6 h-6 inline mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -490,6 +504,19 @@ export const PricingPage: React.FC = () => {
                   <span className={`text-sm ${currentSubs.video_subscription.is_active ? 'text-green-600' : 'text-yellow-600'}`}>
                     {currentSubs.video_subscription.is_active ? 'Đang hoạt động' : 'Không hoạt động'}
                   </span>
+                  {currentSubs.video_subscription.end_date && (
+                    <div className="mt-2 flex items-center text-sm text-gray-600">
+                      <CalendarIcon />
+                      <span className="ml-2">
+                        Còn lại: <span className="font-semibold text-blue-600">
+                          {(() => {
+                            const remainingDays = calculateRemainingDays(currentSubs.video_subscription.end_date);
+                            return remainingDays !== null ? `${remainingDays} ngày` : 'Đang tính...';
+                          })()}
+                        </span>
+                      </span>
+                    </div>
+                  )}
                 </>
               ) : (
                 <p className="text-gray-500">Chưa có gói</p>
@@ -509,6 +536,19 @@ export const PricingPage: React.FC = () => {
                   <span className={`text-sm ${currentSubs.chatbot_subscription.is_active ? 'text-green-600' : 'text-yellow-600'}`}>
                     {currentSubs.chatbot_subscription.is_active ? 'Đang hoạt động' : 'Chờ phê duyệt'}
                   </span>
+                  {currentSubs.chatbot_subscription.end_date && (
+                    <div className="mt-2 flex items-center text-sm text-gray-600">
+                      <CalendarIcon />
+                      <span className="ml-2">
+                        Còn lại: <span className="font-semibold text-blue-600">
+                          {(() => {
+                            const remainingDays = calculateRemainingDays(currentSubs.chatbot_subscription.end_date);
+                            return remainingDays !== null ? `${remainingDays} ngày` : 'Đang tính...';
+                          })()}
+                        </span>
+                      </span>
+                    </div>
+                  )}
                 </>
               ) : (
                 <p className="text-gray-500">Chưa có gói</p>

@@ -1,9 +1,13 @@
 // src/hooks/useZaloSessions.ts
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  getZaloSessions, logoutZalo,
-  zaloLoginQRStream, QRResponse, ZaloSessionInfo, getZaloStatus
-} from '../../../services/zaloService';
+  getZaloSessions,
+  logoutZalo,
+  zaloLoginQRStream,
+  QRResponse,
+  ZaloSessionInfo,
+  getZaloStatus,
+} from "../../../services/zaloService";
 
 export function useZaloSessions() {
   const [sessions, setSessions] = useState<ZaloSessionInfo[]>([]);
@@ -12,7 +16,7 @@ export function useZaloSessions() {
 
   // QR state
   const [open, setOpen] = useState(false);
-  const [phase, setPhase] = useState<'idle' | 'waiting' | 'connected'>('idle');
+  const [phase, setPhase] = useState<"idle" | "waiting" | "connected">("idle");
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [qrMsg, setQrMsg] = useState<string | null>(null);
   const sseActiveRef = useRef(false);
@@ -24,17 +28,19 @@ export function useZaloSessions() {
       const res = await getZaloSessions();
       setSessions(res.items || []);
     } catch (e: any) {
-      setErr(e?.message || 'Lỗi tải phiên Zalo');
+      setErr(e?.message || "Lỗi tải phiên Zalo");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const connectViaQR = useCallback(async () => {
     setOpen(true);
-    setPhase('waiting');
+    setPhase("waiting");
     setQrImage(null);
     setQrMsg(null);
 
@@ -43,22 +49,22 @@ export function useZaloSessions() {
 
     await zaloLoginQRStream(
       (data: QRResponse) => {
-        if (data?.type === 'qr' && data?.data?.image) {
+        if (data?.type === "qr" && data?.data?.image) {
           setQrImage(`data:image/png;base64,${data.data.image}`);
         }
-        if (data?.type === 'status' && data?.data?.code) {
+        if (data?.type === "status" && data?.data?.code) {
           setQrMsg(data.data.code);
         }
-        if (data?.type === 'success') {
-          setPhase('connected');
+        if (data?.type === "success") {
+          setPhase("connected");
           refresh();
         }
-        if (data?.type === 'error') {
-          setQrMsg(data?.error || 'Có lỗi khi kết nối QR');
+        if (data?.type === "error") {
+          setQrMsg(data?.error || "Có lỗi khi kết nối QR");
         }
       },
       (error) => {
-        setQrMsg(error.message || 'Lỗi stream QR');
+        setQrMsg(error.message || "Lỗi stream QR");
         sseActiveRef.current = false;
       },
       () => {
@@ -69,18 +75,25 @@ export function useZaloSessions() {
 
   const closeQR = useCallback(() => {
     setOpen(false);
-    setPhase('idle');
+    setPhase("idle");
     setQrImage(null);
     setQrMsg(null);
   }, []);
 
-  const disconnect = useCallback(async (accountId?: string) => {
-    await logoutZalo(accountId);
-    await refresh();
-  }, [refresh]);
+  const disconnect = useCallback(
+    async (accountId?: string) => {
+      await logoutZalo(accountId);
+      await refresh();
+    },
+    [refresh]
+  );
 
   const status = useCallback(async () => {
-    try { return await getZaloStatus(); } catch { return null; }
+    try {
+      return await getZaloStatus();
+    } catch {
+      return null;
+    }
   }, []);
 
   return {
@@ -91,6 +104,6 @@ export function useZaloSessions() {
     connectViaQR,
     disconnect,
     qr: { open, phase, image: qrImage, msg: qrMsg, close: closeQR },
-    status
+    status,
   };
 }
