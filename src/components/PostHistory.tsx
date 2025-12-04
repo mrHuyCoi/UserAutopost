@@ -394,7 +394,7 @@ export const PostHistory: React.FC<PostHistoryProps> = ({
 
   useEffect(() => {
     const hasProcessingPosts = unpublishedPosts.some(isPostProcessing);
-    let intervalId: NodeJS.Timeout | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     if (hasProcessingPosts) {
       intervalId = setInterval(() => {
