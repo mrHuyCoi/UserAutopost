@@ -1361,16 +1361,19 @@ const SettingsManagement: React.FC = () => {
             </h3>
             <div className="space-y-4">
               {/* Chatbot Mobile */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-200">
-                <div>
-                  <div className="font-medium text-gray-800">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-3 border-b border-gray-200">
+                {/* Left text */}
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-800 truncate">
                     Chatbot Mobile
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">
+                  <div className="text-sm text-gray-600 mt-1 break-words">
                     Nguồn: Backend proxy → https://chatbotmobile.quandoiai.vn
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+
+                {/* Right side: status + switch */}
+                <div className="flex items-center gap-3 shrink-0">
                   <span
                     className={`px-3 py-1 rounded-full text-sm font-medium ${
                       isActiveStatus(mobileBotStatus)
@@ -1382,7 +1385,8 @@ const SettingsManagement: React.FC = () => {
                   >
                     {mobileBotStatus}
                   </span>
-                  <label className="relative inline-flex items-center cursor-pointer">
+
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
                       type="checkbox"
                       checked={isActiveStatus(mobileBotStatus)}
@@ -1390,28 +1394,32 @@ const SettingsManagement: React.FC = () => {
                       disabled={mobileBotLoading}
                       className="sr-only peer disabled:opacity-50"
                     />
+
                     {mobileBotLoading ? (
                       <div className="w-11 h-6 flex items-center justify-center">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                       </div>
                     ) : (
-                      <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                      <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-blue-500 relative">
+                        <div className="absolute top-[2px] left-[2px] bg-white h-5 w-5 rounded-full transition-all peer-checked:translate-x-full"></div>
+                      </div>
                     )}
                   </label>
                 </div>
               </div>
 
               {/* Chatbot Custom */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-200 last:border-b-0">
-                <div>
-                  <div className="font-medium text-gray-800">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-3 border-b border-gray-200 last:border-b-0">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-800 truncate">
                     Chatbot Custom
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">
+                  <div className="text-sm text-gray-600 mt-1 break-words">
                     Nguồn: Backend proxy → https://chatbotproduct.quandoiai.vn
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+
+                <div className="flex items-center gap-3 shrink-0">
                   <span
                     className={`px-3 py-1 rounded-full text-sm font-medium ${
                       isActiveStatus(customBotStatus)
@@ -1423,7 +1431,8 @@ const SettingsManagement: React.FC = () => {
                   >
                     {customBotStatus}
                   </span>
-                  <label className="relative inline-flex items-center cursor-pointer">
+
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
                       type="checkbox"
                       checked={isActiveStatus(customBotStatus)}
@@ -1431,16 +1440,20 @@ const SettingsManagement: React.FC = () => {
                       disabled={customBotLoading}
                       className="sr-only peer disabled:opacity-50"
                     />
+
                     {customBotLoading ? (
                       <div className="w-11 h-6 flex items-center justify-center">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
                       </div>
                     ) : (
-                      <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                      <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-blue-500 relative">
+                        <div className="absolute top-[2px] left-[2px] bg-white h-5 w-5 rounded-full transition-all peer-checked:translate-x-full"></div>
+                      </div>
                     )}
                   </label>
                 </div>
               </div>
+
             </div>
           </div>
         </div>
