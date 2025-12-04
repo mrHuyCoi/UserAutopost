@@ -28,6 +28,7 @@ import Header from './components/Header';
 import MainLayout from './components/MainLayout';
 import SettingsManagement from './components/SettingManagement';
 import ChatBot from './components/ChatBot';
+import SyncPage from './pages/SyncPage';
 
 function App() {
   const { 
@@ -121,6 +122,17 @@ function App() {
           } 
         />
         <Route 
+          path="/chatbot/sync" 
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <SyncPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route 
           path="/devices" 
           element={
             <ProtectedRoute>
@@ -148,7 +160,7 @@ function App() {
               </MainLayout>
             </ProtectedRoute>
           } />
-        {/* Các route khác giữ nguyên */}
+        {/* Các route khác giữ nguyên */} 
         <Route 
           path="/posts" 
           element={
