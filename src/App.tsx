@@ -154,16 +154,16 @@ function App() {
           element={
             <ProtectedRoute>
               <PostsPage
-                accounts={accounts}
-                publishedPosts={publishedPosts}
-                unpublishedPosts={unpublishedPosts}
-                isLoadingPublished={isLoadingPublished}
-                isLoadingUnpublished={isLoadingUnpublished}
-                getSocialAccountId={getSocialAccountId}
-                onRefreshPosts={refreshPosts}
-                onUpdatePost={updatePost}
-                onDeletePost={deletePost}
-                onRetryPost={retryPost}
+                // accounts={accounts}
+                // publishedPosts={publishedPosts}
+                // unpublishedPosts={unpublishedPosts}
+                // isLoadingPublished={isLoadingPublished}
+                // isLoadingUnpublished={isLoadingUnpublished}
+                // getSocialAccountId={getSocialAccountId}
+                // onRefreshPosts={refreshPosts}
+                // onUpdatePost={updatePost}
+                // onDeletePost={deletePost}
+                // onRetryPost={retryPost}
               />
             </ProtectedRoute>
           } 

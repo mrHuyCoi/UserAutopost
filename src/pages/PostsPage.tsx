@@ -215,19 +215,12 @@ export const PostsPage: React.FC = () => {
 
   const onPublishPost = useCallback(
     async (postId: string) => {
-      // không await nữa
-      svcPublishPost(postId)
-        .catch((err) => console.error('Publish error:', err))
-        .finally(() => {
-          // backend cần thời gian để update database
-          setTimeout(() => onRefreshPosts(), 2000);
-        });
-
-      return { message: 'Đang đăng bài…' };
+      const res = await svcPublishPost(postId);
+      await onRefreshPosts();
+      return res;
     },
     [onRefreshPosts]
   );
-
 
   const connectedAccounts = useMemo(() => accounts.filter((a) => a.connected), [accounts]);
 
