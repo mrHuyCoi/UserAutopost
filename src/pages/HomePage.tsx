@@ -112,28 +112,27 @@ export const HomePage: React.FC = () => {
     {
       title: "Sản Phẩm",
       links: [
-        { icon: <Video size={16} />, text: "Tạo Video", href: "#" },
-        { icon: <Share2 size={16} />, text: "Đăng Bài Tự Động", href: "#" },
-        { icon: <MessageCircle size={16} />, text: "Chatbot", href: "#" },
-        { icon: <Users size={16} />, text: "Quản Lý Khách Hàng", href: "#" }
+        { icon: <Video size={16} />, text: "Tạo Video", href: "/video" },
+        { icon: <Share2 size={16} />, text: "Đăng Bài Tự Động", href: "/posts" },
+        { icon: <MessageCircle size={16} />, text: "Chatbot", href: "/chatbot" },
+        // { icon: <Users size={16} />, text: "Quản Lý Khách Hàng", href: "#" }
       ]
     },
     {
       title: "Hỗ Trợ",
       links: [
-        { icon: <HelpCircle size={16} />, text: "Trung Tâm Trợ Giúp", href: "#" },
-        { icon: <FileText size={16} />, text: "Hướng Dẫn", href: "#" },
-        { icon: <Zap size={16} />, text: "API", href: "#" },
-        { icon: <Mail size={16} />, text: "Liên Hệ", href: "#" }
+        { icon: <FileText size={16} />, text: "Hướng Dẫn", href: "https://hoangmaimobile.vn" },
+        { icon: <Zap size={16} />, text: "API", href: "https://nguyen3g.com/api.php?module=shops&action=ListItem" },
+        { icon: <Mail size={16} />, text: "Liên Hệ", href: "https://hoangmaimobile.vn/lien-he.html" }
       ]
     },
     {
       title: "Công Ty",
       links: [
-        { icon: <Heart size={16} />, text: "Về Chúng Tôi", href: "#" },
-        { icon: <BookOpen size={16} />, text: "Blog", href: "#" },
-        { icon: <Briefcase size={16} />, text: "Tuyển Dụng", href: "#" },
-        { icon: <Shield size={16} />, text: "Chính Sách", href: "#" }
+        { icon: <Heart size={16} />, text: "Về Chúng Tôi", href: "https://hoangmaimobile.vn" },
+        { icon: <BookOpen size={16} />, text: "Blog", href: "https://hoangmaimobile.vn" },
+        { icon: <Briefcase size={16} />, text: "Tuyển Dụng", href: "https://hoangmaimobile.vn/tuyen-dung-dao-tao-kn4.html" },
+        { icon: <Shield size={16} />, text: "Chính Sách", href: "https://hoangmaimobile.vn/chinh-sach-bao-mat-thong-tin-ct76.html" }
       ]
     }
   ];
