@@ -231,78 +231,88 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* Pricing Section */}
-<section className="py-20 bg-gray-50">
-  <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div className="text-center mb-16">
-      <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-        Bảng Giá Linh Hoạt
-      </h2>
-      <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-        Chọn gói phù hợp với nhu cầu tự động hóa của doanh nghiệp bạn
-      </p>
-    </div>
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+              Bảng Giá Linh Hoạt
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Chọn gói phù hợp với nhu cầu tự động hóa của doanh nghiệp bạn
+            </p>
+          </div>
 
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch max-w-4xl mx-auto">
-      {pricingPlans.map((plan, index) => (
-        <div
-          key={index}
-          className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 relative border border-gray-200 flex flex-col h-full"
-        >
-          <div className="flex-grow">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">{plan.name}</h3>
-            
-            <div className="text-center mb-6">
-              <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
-              <span className="text-gray-600">{plan.period}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch max-w-4xl mx-auto">
+            {pricingPlans.map((plan, index) => (
+              <div
+                key={index}
+                className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 relative border border-gray-200 flex flex-col h-full"
+              >
+                <div className="flex-grow">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">{plan.name}</h3>
+                  
+                  <div className="text-center mb-6">
+                    <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
+                    <span className="text-gray-600">{plan.period}</span>
+                  </div>
+
+                  <ul className="space-y-4 mb-8">
+                    {plan.features.map((feature, featureIndex) => (
+                      <li key={featureIndex} className="flex items-start gap-3 text-gray-700">
+                        <Check size={16} className="text-green-500 flex-shrink-0 mt-1" />
+                        <span className="text-sm leading-relaxed">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="mt-auto">
+                  <button
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        navigate("/login");
+                      } else {
+                        navigate(
+                          plan.name === "Gói Chatbot"
+                            ? "/pricing?tab=chatbot"
+                            : "/pricing?tab=video"
+                        );
+                      }
+                    }}
+                    className="w-full py-3 rounded-xl font-semibold text-lg transition-all duration-300 flex items-center justify-center gap-2 border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                  >
+                    <ShoppingCart size={20} />
+                    Chọn gói
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Additional Info */}
+          <div className="text-center mt-12">
+            <p className="text-gray-600 mb-4">Tất cả các gói đều bao gồm:</p>
+            <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <Check size={16} className="text-green-500" />
+                <span>Chatbot tự động trả lời</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check size={16} className="text-green-500" />
+                <span>Đăng bài đa nền tảng</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check size={16} className="text-green-500" />
+                <span>Hỗ trợ kỹ thuật</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check size={16} className="text-green-500" />
+                <span>Cập nhật miễn phí</span>
+              </div>
             </div>
-
-            <ul className="space-y-4 mb-8">
-              {plan.features.map((feature, featureIndex) => (
-                <li key={featureIndex} className="flex items-start gap-3 text-gray-700">
-                  <Check size={16} className="text-green-500 flex-shrink-0 mt-1" />
-                  <span className="text-sm leading-relaxed">{feature}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="mt-auto">
-            <Link
-              to={isAuthenticated ? "/pricing" : "/login"}
-              className="w-full py-3 rounded-xl font-semibold text-lg transition-all duration-300 flex items-center justify-center gap-2 border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
-            >
-              <ShoppingCart size={20} />
-              Chọn gói
-            </Link>
           </div>
         </div>
-      ))}
-    </div>
-
-    {/* Additional Info */}
-    <div className="text-center mt-12">
-      <p className="text-gray-600 mb-4">Tất cả các gói đều bao gồm:</p>
-      <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-600">
-        <div className="flex items-center gap-2">
-          <Check size={16} className="text-green-500" />
-          <span>Chatbot tự động trả lời</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Check size={16} className="text-green-500" />
-          <span>Đăng bài đa nền tảng</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Check size={16} className="text-green-500" />
-          <span>Hỗ trợ kỹ thuật</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Check size={16} className="text-green-500" />
-          <span>Cập nhật miễn phí</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+      </section>
 
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-blue-600 to-blue-700">
