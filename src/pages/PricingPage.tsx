@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import Swal from 'sweetalert2';
-
+import { useLocation } from 'react-router-dom';
 // --- TYPE DEFINITIONS ---
 interface VideoPlan {
   id: string;
@@ -216,6 +216,8 @@ const CloudIcon = () => (
 
 export const PricingPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  
   const [activeTab, setActiveTab] = useState<'video' | 'chatbot'>('video');
 
   const [videoPlans, setVideoPlans] = useState<VideoPlan[]>([]);
@@ -229,7 +231,13 @@ export const PricingPage: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [isSubscribing, setIsSubscribing] = useState<string | null>(null);
   const [selectedMonths, setSelectedMonths] = useState(1);
-
+  useEffect(() => {
+    const param = new URLSearchParams(location.search);
+    const tab = param.get('tab');
+    if (tab === 'chatbot' || tab === 'video') {
+        setActiveTab(tab as 'video' | 'chatbot');
+    }
+  }, [location.search]);
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem('auth_token');
