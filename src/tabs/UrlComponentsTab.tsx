@@ -7,14 +7,15 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import Filter, { FilterConfig } from '../components/Filter';
 import { userSyncUrlService } from '../services/userSyncUrlService';
 import { productComponentService } from '../services/productComponentService';
-
+import ComponentFormModal from '../components/ComponentManagement/components/ComponentFormModal';
+import { Component } from '../components/ComponentManagement/types';
 interface ComponentItem {
   id: string;
   product_code: string;
-  name: string;
+  product_name: string;
   category: string;
   attributes: string;
-  price: number;
+  amount: number;
   wholesale_price: number;
   trademark: string;
   guarantee: string;
@@ -22,6 +23,7 @@ interface ComponentItem {
   description: string;
   product_photo: string;
   product_link: string;
+  properties: string;
 }
 
 const UrlComponentsTab: React.FC = () => {
@@ -43,6 +45,12 @@ const UrlComponentsTab: React.FC = () => {
     total: 0,
     totalPages: 1,
   });
+
+  // --- STATE CHO MODAL ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [editingComponent, setEditingComponent] = useState<Component | null>(null);
+  const [isModalLoading, setIsModalLoading] = useState(false);
 
   // Fetch components and check if the user has synced
 // Effect 1: Khi thay đổi filter/search/sort -> Reset về trang 1
@@ -224,14 +232,76 @@ const UrlComponentsTab: React.FC = () => {
         Swal.fire('Lỗi', 'Không thể xóa linh kiện', 'error');
     }
     };
-    const editComponent = (id: string) => {
-    // Giả sử bạn sẽ điều hướng tới một trang khác để sửa linh kiện
-    // Hoặc bạn có thể mở một modal để chỉnh sửa trực tiếp.
-    console.log('Chỉnh sửa linh kiện với ID:', id);
-    // Ví dụ, điều hướng tới trang sửa sản phẩm:
-    // history.push(`/edit-product/${id}`);
-    };
+    const handleEditClick = async (id: string) => {
+        setIsModalOpen(true);
+        setModalMode('edit');
+        setIsModalLoading(true);
+        try {
+            // Lấy chi tiết mới nhất từ API để đảm bảo dữ liệu (đặc biệt là attributes) đầy đủ
+            const data: any = await productComponentService.getProductComponentById(id);
+            
+            // Map dữ liệu từ API (snake_case) sang Form (camelCase)
+            const mappedData: Component = {
+                id: data.id,
+                code: data.product_code,
+                name: data.product_name,
+                category: data.category,
+                attribute: data.attributes, // Giữ nguyên chuỗi JSON, modal sẽ tự parse
+                retailPrice: data.amount,
+                wholesalePrice: data.wholesale_price,
+                brand: data.trademark,
+                warranty: data.guarantee,
+                stock: data.stock,
+                description: data.description,
+                // Xử lý ảnh: API trả về string đơn, form cần mảng
+                images: data.product_photo ? [data.product_photo] : [], 
+                productLink: data.product_link
+            };
+            setEditingComponent(mappedData);
+        } catch (error) {
+            console.error("Lỗi lấy chi tiết:", error);
+            Swal.fire("Lỗi", "Không thể lấy thông tin linh kiện", "error");
+            setIsModalOpen(false);
+        } finally {
+            setIsModalLoading(false);
+        }
+      };
+const handleModalSubmit = async (formData: Component) => {
+    try {
+        // Map dữ liệu từ Form (camelCase) sang API Payload (snake_case)
+        const payload: any = {
+            product_code: formData.code,
+            name: formData.name,
+            category: formData.category,
+            attributes: formData.attribute, // Chuỗi JSON đã xử lý trong modal
+            price: Number(formData.retailPrice),
+            wholesale_price: Number(formData.wholesalePrice),
+            trademark: formData.brand,
+            guarantee: formData.warranty,
+            stock: Number(formData.stock),
+            description: formData.description,
+            product_link: formData.productLink,
+            product_photo: (formData.images?.length || 0) > 0 ? formData.images![0] : ""
+        };
 
+        if (modalMode === 'add') {
+            await productComponentService.createProductComponent(payload);
+            Swal.fire("Thành công", "Đã thêm linh kiện mới", "success");
+        } else {
+            if (!editingComponent?.id) return;
+            await productComponentService.updateProductComponent(editingComponent.id, payload);
+            Swal.fire("Thành công", "Đã cập nhật linh kiện", "success");
+        }
+
+        setIsModalOpen(false);
+        fetchComponents(); // Refresh danh sách
+    } catch (error: any) {
+        console.error("Lỗi submit form:", error);
+        Swal.fire("Lỗi", error.response?.data?.detail || "Có lỗi xảy ra khi lưu", "error");
+        // Ném lỗi để modal biết không đóng form (nếu cần)
+        throw error;
+    }
+  };
 
   return (
     <div>
@@ -273,7 +343,7 @@ const UrlComponentsTab: React.FC = () => {
 
       <div className="mb-4 flex justify-between items-center">
         <h3 className="text-xl font-semibold">Danh sách linh kiện</h3>
-        <Filter config={filterConfig} onFilterChange={setFilters} />
+        {/* <Filter config={filterConfig} onFilterChange={setFilters} /> */}
       </div>
 
       <div className="relative mb-4">
@@ -326,10 +396,10 @@ const UrlComponentsTab: React.FC = () => {
             components.map((c) => (
             <tr key={c.id}>
                 <td className="px-4 py-2">{c.product_code}</td>
-                <td className="px-4 py-2">{c.name}</td>
+                <td className="px-4 py-2">{c.product_name}</td>
                 <td className="px-4 py-2">{c.category}</td>
-                <td className="px-4 py-2">{c.attributes}</td>
-                <td className="px-4 py-2 text-right">{c.price?.toLocaleString() || 0} đ</td>
+                <td className="px-4 py-2">{c.properties}</td>
+                <td className="px-4 py-2 text-right">{c.amount?.toLocaleString() || 0} đ</td>
                 <td className="px-4 py-2 text-right">{c.wholesale_price?.toLocaleString() || 0} đ</td>
                 <td className="px-4 py-2">{c.trademark}</td>
                 <td className="px-4 py-2">{c.guarantee}</td>
@@ -354,18 +424,21 @@ const UrlComponentsTab: React.FC = () => {
                 <a href={c.product_link} target="_blank" className="text-blue-600 underline">Xem</a>
                 </td>
                 <td className="px-4 py-2">
+                  <div className='flex items-center gap-3 '> 
                     <button
-                    onClick={() => editComponent(c.id)} // Gọi hàm sửa khi nhấn nút sửa
+                    onClick={() => handleEditClick(c.id)} // Gọi hàm sửa khi nhấn nút sửa
                     className="text-blue-600 flex items-center gap-1"
                     >
-                    <Edit2 size={16} /> Sửa
+                    <Edit2 size={16} />
                     </button>
                     <button
                     onClick={() => deleteComponent(c.id)} // Gọi hàm xóa khi nhấn nút xóa
                     className="text-red-600 flex items-center gap-1 ml-2"
                     >
-                    <Trash2 size={16} /> Xóa
+                    <Trash2 size={16} />
                     </button>
+                  </div>
+                    
                 </td>
             </tr>
             ))
@@ -386,6 +459,14 @@ const UrlComponentsTab: React.FC = () => {
             setPagination((p) => ({ ...p, page: pageNumber }));
             }
         }}
+        />
+        <ComponentFormModal
+        isOpen={isModalOpen}
+        mode={modalMode}
+        isLoading={isModalLoading}
+        initialData={editingComponent}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleModalSubmit}
         />
       </div>
     </div>
