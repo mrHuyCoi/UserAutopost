@@ -645,6 +645,15 @@ export const PricingPage: React.FC = () => {
                           
                           {/* Content */}
                           <div className="p-6 flex-1">
+                              {/* Description block */}
+                              {plan.description && (
+                                
+                                <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg text-gray-700 text-sm leading-relaxed">
+                                  <h3>Mô tả gói:</h3>
+                                  {plan.description}
+                                </div>
+                              )}
+
                             <div className="space-y-4">
                               <div className="flex items-center pb-3 border-b border-gray-100">
                                 <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center mr-3 text-purple-600">
