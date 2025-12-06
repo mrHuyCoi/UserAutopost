@@ -83,7 +83,7 @@ export const useMessengerWebSocket = ({
     if (pingIntervalRef.current) {
       try {
         window.clearInterval(pingIntervalRef.current);
-      } catch (e) {
+      } catch {
         // Ignore
       }
       pingIntervalRef.current = null;
@@ -93,7 +93,7 @@ export const useMessengerWebSocket = ({
     if (reconnectTimeoutRef.current) {
       try {
         window.clearTimeout(reconnectTimeoutRef.current);
-      } catch (e) {
+      } catch {
         // Ignore
       }
       reconnectTimeoutRef.current = null;
@@ -103,7 +103,7 @@ export const useMessengerWebSocket = ({
     if (pollingIntervalRef.current) {
       try {
         window.clearInterval(pollingIntervalRef.current);
-      } catch (e) {
+      } catch {
         // Ignore
       }
       pollingIntervalRef.current = null;
@@ -126,7 +126,8 @@ export const useMessengerWebSocket = ({
               lastMessageIdRef.current = msg.id;
               return false; // Don't add first message, just set reference
             }
-            return msg.id !== lastMessageIdRef.current;
+            const isNew = msg.id !== lastMessageIdRef.current;
+            return isNew;
           });
 
           // Update last message ID
@@ -137,12 +138,16 @@ export const useMessengerWebSocket = ({
           // Call onNewMessage for each new message
           newMessages.forEach((msg) => {
             if (onNewMessage) {
-              onNewMessage(msg);
+              try {
+                onNewMessage(msg);
+              } catch (callbackError) {
+                console.error(`[Messenger Polling] ❌ Error in onNewMessage callback:`, callbackError);
+              }
             }
           });
         }
       } catch (error) {
-        console.error('[Messenger Polling] Error polling messages:', error);
+        console.error('[Messenger Polling] ❌ Error polling messages:', error);
       }
     };
 
@@ -169,9 +174,13 @@ export const useMessengerWebSocket = ({
       return;
     }
 
+    // Don't reconnect if already connected or connecting
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
     const token = getAuthToken();
     if (!token) {
-      console.warn('[Messenger WS] No auth token available');
       setConnectionError('No authentication token');
       return;
     }
@@ -181,14 +190,11 @@ export const useMessengerWebSocket = ({
     const wsProtocol = API_BASE_URL.startsWith('https') ? 'wss' : 'ws';
     const wsUrl = `${wsProtocol}://${host}/api/v1/ws?token=${encodeURIComponent(token)}`;
 
-    console.log('[Messenger WS] Connecting to:', wsUrl);
-
     try {
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('[Messenger WS] ✅ Connected successfully');
         setIsConnected(true);
         setConnectionError(null);
         reconnectAttemptsRef.current = 0;
@@ -213,6 +219,7 @@ export const useMessengerWebSocket = ({
       ws.onmessage = (event) => {
         try {
           const raw = String(event.data ?? '');
+          
           if (!raw.trim()) {
             return;
           }
@@ -229,7 +236,11 @@ export const useMessengerWebSocket = ({
             const { page_id, sender_id, message: msgData } = data;
 
             // Verify this message is for the current conversation
-            if (page_id === pageId && sender_id === psid) {
+            // Use string comparison to handle number/string mismatch
+            const pageIdMatches = String(page_id) === String(pageId);
+            const senderIdMatches = String(sender_id) === String(psid);
+            
+            if (pageIdMatches && senderIdMatches) {
               // Convert WebSocket message format to FBMessageItem format
               const fbMessage: FBMessageItem = {
                 id: msgData.id || msgData.mid || `ws-${Date.now()}`,
@@ -239,7 +250,6 @@ export const useMessengerWebSocket = ({
                 from: msgData.from || {
                   id: msgData.direction === 'out' ? pageId : sender_id,
                 },
-                attachments: msgData.attachments,
               };
 
               // Update last message ID for polling fallback
@@ -249,7 +259,11 @@ export const useMessengerWebSocket = ({
 
               // Call callback
               if (onNewMessage) {
-                onNewMessage(fbMessage);
+                try {
+                  onNewMessage(fbMessage);
+                } catch (callbackError) {
+                  console.error('[Messenger WS] ❌ Error in onNewMessage callback:', callbackError);
+                }
               }
             } else {
               // Message from different conversation
@@ -259,23 +273,24 @@ export const useMessengerWebSocket = ({
             }
           }
         } catch (error) {
-          console.error('[Messenger WS] Error parsing message:', error);
+          console.error('[Messenger WS] ❌ Error parsing message:', error);
           console.error('[Messenger WS] Raw message:', event.data);
         }
       };
 
       ws.onerror = (error) => {
         console.error('[Messenger WS] ❌ WebSocket error:', error);
+        console.error('[Messenger WS] ❌ Error details:', {
+          type: error.type,
+          target: error.target,
+          readyState: ws.readyState,
+          url: wsUrl,
+        });
         setIsConnected(false);
         setConnectionError('WebSocket connection error');
       };
 
       ws.onclose = (event) => {
-        console.log('[Messenger WS] 🔌 Closed:', {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean,
-        });
         setIsConnected(false);
 
         // Cleanup ping interval
@@ -293,16 +308,12 @@ export const useMessengerWebSocket = ({
           psid
         ) {
           reconnectAttemptsRef.current += 1;
-          console.log(
-            `[Messenger WS] Reconnecting... (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`
-          );
 
           reconnectTimeoutRef.current = window.setTimeout(() => {
             connect();
           }, RECONNECT_DELAY);
         } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
           // Switch to polling after max reconnect attempts
-          console.warn('[Messenger WS] Max reconnect attempts reached, switching to polling');
           setUsePolling(true);
           setConnectionError('WebSocket connection failed, using polling fallback');
         }
@@ -322,6 +333,12 @@ export const useMessengerWebSocket = ({
       return;
     }
 
+    // Only connect if not already connected
+    const currentState = wsRef.current?.readyState;
+    if (currentState === WebSocket.OPEN || currentState === WebSocket.CONNECTING) {
+      return;
+    }
+
     // Connect WebSocket
     connect();
 
@@ -334,7 +351,6 @@ export const useMessengerWebSocket = ({
   // Fallback to polling if WebSocket fails
   useEffect(() => {
     if (usePolling && enabled && pageId && psid && conversationId) {
-      console.log('[Messenger WS] Starting polling fallback');
       startPolling();
       return () => {
         stopPolling();
@@ -349,11 +365,45 @@ export const useMessengerWebSocket = ({
     lastMessageIdRef.current = null;
   }, [conversationId]);
 
+  // Test connection function - can be called manually
+  const testConnection = useCallback(() => {
+    const ws = wsRef.current;
+    if (!ws) {
+      return {
+        connected: false,
+        readyState: 'NONE',
+        error: 'No WebSocket instance',
+      };
+    }
+
+    const readyState = ws.readyState;
+    const readyStateText = 
+      readyState === WebSocket.OPEN ? 'OPEN' :
+      readyState === WebSocket.CONNECTING ? 'CONNECTING' :
+      readyState === WebSocket.CLOSING ? 'CLOSING' :
+      readyState === WebSocket.CLOSED ? 'CLOSED' : 'UNKNOWN';
+
+    const result = {
+      connected: readyState === WebSocket.OPEN,
+      readyState,
+      readyStateText,
+      url: ws.url,
+      isConnected,
+      connectionError,
+      usePolling,
+      pageId,
+      psid,
+    };
+
+    return result;
+  }, [isConnected, connectionError, usePolling, pageId, psid]);
+
   return {
     isConnected,
     connectionError,
     usePolling,
     reconnect: connect,
+    testConnection,
   };
 };
 

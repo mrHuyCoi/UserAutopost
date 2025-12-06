@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import {
   getFacebookPages,
   getFBConversations,
@@ -13,6 +13,7 @@ import {
 import Swal from 'sweetalert2';
 import { faqMobileService } from '../../services/faqMobileService';
 import { apiGet, apiPut } from '../../services/apiService';
+import { useMessengerWebSocket } from '../../hooks/useMessengerWebSocket';
 
 const time = (iso?: string) => {
   if (!iso) return '';
@@ -180,12 +181,17 @@ const FacebookConversationsTab: React.FC = () => {
     })();
   }, []);
 
-  const loadConversations = async (opts?: { before?: string; after?: string }) => {
+  const loadConversations = async (opts?: { before?: string; after?: string; resetSelection?: boolean }) => {
     if (!selectedPageId) return;
     setLoadingConvs(true);
     setConvError(null);
-    setSelectedConversationId(null);
-    setMessages([]);
+    
+    // Only reset selection if explicitly requested (e.g., when changing page or manual refresh)
+    if (opts?.resetSelection !== false) {
+      setSelectedConversationId(null);
+      setMessages([]);
+    }
+    
     try {
       // Always use Messenger on UI
       const res = await getFBConversations(selectedPageId, 'messenger', 25, opts?.before, opts?.after);
@@ -202,6 +208,23 @@ const FacebookConversationsTab: React.FC = () => {
       setLoadingConvs(false);
     }
   };
+
+  // Refresh conversations without resetting selection (for WebSocket updates)
+  const refreshConversations = useCallback(async () => {
+    if (!selectedPageId) return;
+    try {
+      const res = await getFBConversations(selectedPageId, 'messenger', 25);
+      const items = res?.data || [];
+      setConversations(items);
+      const cursors = res?.paging?.cursors || {};
+      setConvBefore(cursors.before);
+      setConvAfter(cursors.after);
+      setConvNext(res?.paging?.next);
+      setConvPrev(res?.paging?.previous);
+    } catch (e: any) {
+      console.error('[FacebookConversationsTab] Error refreshing conversations:', e);
+    }
+  }, [selectedPageId]);
 
   // reload convs when page changes
   useEffect(() => {
@@ -275,10 +298,53 @@ const FacebookConversationsTab: React.FC = () => {
   const selectedPage = useMemo(() => pages.find(p => p.account_id === selectedPageId), [pages, selectedPageId]);
   const selectedConversation = useMemo(() => conversations.find(c => c.id === selectedConversationId) || null, [conversations, selectedConversationId]);
   const selectedPsid = useMemo(() => {
-    if (!selectedConversation || !selectedPageId) return '';
+    if (!selectedConversation || !selectedPageId) {
+      return '';
+    }
     const p = selectedConversation?.participants?.data?.find(p => p.id !== selectedPageId);
-    return p?.id || '';
-  }, [selectedConversation, selectedPageId]);
+    const psid = p?.id || '';
+    return psid;
+  }, [selectedConversation, selectedPageId, selectedConversationId]);
+
+  // Handle new message from WebSocket
+  const handleNewMessage = useCallback((newMessage: FBMessageItem) => {
+    // Add new message to messages list (avoid duplicates)
+    setMessages(prev => {
+      // Check if message already exists
+      const messageExists = prev.some(m => m.id === newMessage.id);
+      if (messageExists) {
+        return prev;
+      }
+
+      // Add new message
+      const updated = [newMessage, ...prev];
+      // sortedMessages will handle sorting, so we don't need to sort here
+      return updated;
+    });
+
+    // Refresh conversations list to update unread count and snippet (without resetting selection)
+    if (selectedPageId) {
+      refreshConversations();
+    }
+  }, [selectedPageId, refreshConversations]);
+
+  // Handle conversation update from WebSocket (message from different conversation)
+  const handleConversationUpdate = useCallback((pageId: string, psid: string) => {
+    // Refresh conversations list to show new messages (without resetting selection)
+    if (selectedPageId === pageId) {
+      refreshConversations();
+    }
+  }, [selectedPageId, refreshConversations]);
+
+  // WebSocket hook
+  const { isConnected, connectionError, usePolling, testConnection } = useMessengerWebSocket({
+    pageId: selectedPageId || null,
+    psid: selectedPsid || null,
+    conversationId: selectedConversationId,
+    enabled: !!selectedPageId && !!selectedPsid,
+    onNewMessage: handleNewMessage,
+    onConversationUpdate: handleConversationUpdate,
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -400,7 +466,29 @@ const FacebookConversationsTab: React.FC = () => {
 
         {/* Messages panel */}
         <div className="bg-white rounded shadow p-3 md:col-span-2 flex flex-col h-[70vh]">
-          <h3 className="font-semibold mb-2">Tin nhắn</h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold">Tin nhắn</h3>
+            {selectedPageId && selectedPsid && (
+              <div className="flex items-center gap-2 text-xs">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} title={isConnected ? 'WebSocket Connected' : 'WebSocket Disconnected'} />
+                <span className={isConnected ? 'text-green-600' : 'text-red-600'}>
+                  {isConnected ? 'Đã kết nối' : usePolling ? 'Đang dùng Polling' : 'Chưa kết nối'}
+                </span>
+                {connectionError && (
+                  <span className="text-red-600" title={connectionError}>⚠️</span>
+                )}
+                <button
+                  onClick={() => {
+                    testConnection();
+                  }}
+                  className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                  title="Test WebSocket connection"
+                >
+                  🧪
+                </button>
+              </div>
+            )}
+          </div>
           {selectedConversationId ? (
             <>
               {msgError && <div className="text-red-600 mb-2">{msgError}</div>}
