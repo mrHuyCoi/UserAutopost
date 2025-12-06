@@ -782,12 +782,29 @@ export const PricingPage: React.FC = () => {
                         
                         <div className="p-6 flex-1 flex flex-col">
                           <div className="space-y-4 mb-6 flex-1">
-                            <div className="flex items-center pb-3 border-b border-gray-100">
-                              <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center mr-3 text-purple-600">
-                                <RobotIcon />
+                            <div className="pb-3 border-b border-gray-100">
+                              <div className="flex items-center mb-2">
+                                <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center mr-3 text-purple-600">
+                                  <RobotIcon />
+                                </div>
+                                <div className="font-semibold">Mô tả gói</div>
                               </div>
-                              <div>{plan.description}</div>
+                              <div className="text-gray-700 ml-9">{plan.description}</div>
+
+                              {/* HIỂN THỊ SERVICES */}
+                              {plan.services && plan.services.length > 0 && (
+                                <ul className="mt-3 space-y-2 ml-9">
+                                  {plan.services.map((s) => (
+                                    <li key={s.id} className="text-gray-800 text-sm bg-purple-50 p-2 rounded-lg">
+                                      <span className="font-medium text-purple-700">{s.name}</span>
+                                      <br />
+                                      <span className="text-gray-600 text-xs">{s.description}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
                             </div>
+
                             
                             <div className="flex items-center pb-3 border-b border-gray-100">
                               <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center mr-3 text-purple-600">
