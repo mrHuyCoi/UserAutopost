@@ -321,7 +321,7 @@ export const DeviceForm: React.FC<DeviceFormProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 overflow-y-auto max-h-[80vh] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b bg-gray-50">
         <div>
