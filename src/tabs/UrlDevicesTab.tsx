@@ -123,6 +123,37 @@ const UrlDevicesTab: React.FC = () => {
     { key: "inventory", label: "Tồn kho", type: "range-number" },
   ];
 
+  const columnLabels: Record<string, string> = {
+  product_code: "Mã SP",
+  deviceModel: "Model",
+  inventory: "Tồn kho",
+  price: "Giá lẻ",
+  wholesale_price: "Giá buôn",
+  colorName: "Màu sắc",
+  storageCapacity: "Dung lượng",
+  device_type: "Loại thiết bị",
+  device_condition: "Tình trạng",
+  battery_condition: "Pin (%)",
+  warranty: "Bảo hành",
+  notes: "Ghi chú",
+};
+
+const columns = [
+  'product_code',
+  'deviceModel',
+  'inventory',
+  'price',
+  'wholesale_price',
+  'colorName',
+  'storageCapacity',
+  'device_type',
+  'device_condition',
+  'battery_condition',
+  'warranty',
+  'notes',
+];
+
+
   return (
     <div>
       <UrlSyncConfig isAuthenticated={true} defaultType="device" />
@@ -157,61 +188,56 @@ const UrlDevicesTab: React.FC = () => {
       </div>
 
       {/* TABLE */}
-      <div className="overflow-auto bg-white rounded-lg shadow max-h-[70vh]">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 sticky top-0 z-10">
-            <tr>
-              {[
-                'product_code',
-                'deviceModel',
-                'inventory',
-                'price',
-                'wholesale_price',
-                'colorName',
-                'storageCapacity',
-                'device_type',
-                'device_condition',
-                'battery_condition',
-                'warranty',
-                'notes',
-              ].map((col) => (
-                <th
-                  key={col}
-                  className="px-4 py-3 text-left font-medium cursor-pointer"
-                  onClick={() => setSortConfig({ key: col, direction: sortConfig?.direction === 'ascending' ? 'descending' : 'ascending' })}
-                >
-                  {col}
-                </th>
-              ))}
-            </tr>
-          </thead>
+      <div className="overflow-auto bg-white rounded-lg shadow max-h-[70vh] 
+    scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
 
-          <tbody className="divide-y">
-            {isLoading ? (
-              <tr><td colSpan={12}><LoadingSpinner /></td></tr>
-            ) : devices.length === 0 ? (
-              <tr><td colSpan={12} className="text-center py-4">Không có dữ liệu</td></tr>
-            ) : (
-              devices.map((d) => (
-                <tr key={d.id}>
-                  <td className="px-4 py-2">{d.product_code}</td>
-                  <td className="px-4 py-2">{d.deviceModel}</td>
-                  <td className="px-4 py-2">{d.inventory}</td>
-                  <td className="px-4 py-2">{d.price}</td>
-                  <td className="px-4 py-2">{d.wholesale_price}</td>
-                  <td className="px-4 py-2">{d.colorName}</td>
-                  <td className="px-4 py-2">{d.storageCapacity} GB</td>
-                  <td className="px-4 py-2">{d.device_type}</td>
-                  <td className="px-4 py-2">{d.device_condition}</td>
-                  <td className="px-4 py-2">{d.battery_condition}</td>
-                  <td className="px-4 py-2">{d.warranty}</td>
-                  <td className="px-4 py-2">{d.notes}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <table className="min-w-full text-sm">
+        <thead className="bg-gray-50 sticky top-0 z-10">
+          <tr>
+            {columns.map((col) => (
+              <th
+                key={col}
+                className="px-2 md:px-4 py-2 md:py-3 text-left font-medium cursor-pointer whitespace-nowrap"
+                onClick={() =>
+                  setSortConfig({
+                    key: col,
+                    direction: sortConfig?.direction === "ascending" ? "descending" : "ascending",
+                  })
+                }
+              >
+                {columnLabels[col] ?? col}
+              </th>
+            ))}
+          </tr>
+        </thead>
+
+        <tbody className="divide-y">
+          {isLoading ? (
+            <tr><td colSpan={12}><LoadingSpinner /></td></tr>
+          ) : devices.length === 0 ? (
+            <tr><td colSpan={12} className="text-center py-4">Không có dữ liệu</td></tr>
+          ) : (
+            devices.map((d) => (
+              <tr key={d.id}>
+                <td className="px-2 md:px-4 py-2 whitespace-nowrap">{d.product_code}</td>
+                <td className="px-2 md:px-4 py-2 max-w-[150px] truncate">{d.deviceModel}</td>
+                <td className="px-2 md:px-4 py-2">{d.inventory}</td>
+                <td className="px-2 md:px-4 py-2">{d.price}</td>
+                <td className="px-2 md:px-4 py-2">{d.wholesale_price}</td>
+                <td className="px-2 md:px-4 py-2">{d.colorName}</td>
+                <td className="px-2 md:px-4 py-2">{d.storageCapacity} GB</td>
+                <td className="px-2 md:px-4 py-2">{d.device_type}</td>
+                <td className="px-2 md:px-4 py-2">{d.device_condition}</td>
+                <td className="px-2 md:px-4 py-2">{d.battery_condition}</td>
+                <td className="px-2 md:px-4 py-2">{d.warranty}</td>
+                <td className="px-2 md:px-4 py-2 max-w-[160px] truncate">{d.notes}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+
 
       {/* PAGINATION */}
       <div className="mt-4 flex justify-end">

@@ -307,7 +307,7 @@ const handleModalSubmit = async (formData: Component) => {
     <div>
       <UrlSyncConfig isAuthenticated={true} defaultType="component" />
 
-      <div className="flex gap-3 mt-2 mb-6">
+      <div className="flex flex-wrap gap-3 mt-2 mb-6">
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={syncToday} onChange={(e) => setSyncToday(e.target.checked)} />
           Nạp dữ liệu trong ngày
@@ -315,7 +315,8 @@ const handleModalSubmit = async (formData: Component) => {
 
         <button
             onClick={syncTodayData} // Gọi syncTodayData
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2"
+            className="px-3 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 
+            text-sm w-full sm:w-auto justify-center"
             disabled={isSyncingToday} // Chỉ vô hiệu hóa nút khi đang đồng bộ
         >
             <RefreshCw className={`w-4 h-4 ${isSyncingToday ? 'animate-spin' : ''}`} />
@@ -324,7 +325,8 @@ const handleModalSubmit = async (formData: Component) => {
 
             <button
             onClick={syncAllData} // Gọi syncAllData
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg flex items-center gap-2"
+            className="px-3 py-2 bg-purple-600 text-white rounded-lg flex items-center gap-2 
+            text-sm w-full sm:w-auto justify-center"
             disabled={isSyncingAll} // Chỉ vô hiệu hóa nút khi đang đồng bộ
             >
             <RefreshCw className={`w-4 h-4 ${isSyncingAll ? 'animate-spin' : ''}`} />
@@ -334,7 +336,8 @@ const handleModalSubmit = async (formData: Component) => {
         {components.length > 0 && (
           <button
             onClick={deleteAll} // Gọi deleteAll
-            className="px-4 py-2 bg-red-600 text-white rounded-lg flex items-center gap-2"
+            className="px-3 py-2 bg-red-600 text-white rounded-lg flex items-center gap-2 
+            text-sm w-full sm:w-auto justify-center"
           >
             <Trash2 size={16} /> Xóa tất cả
           </button>
@@ -355,7 +358,8 @@ const handleModalSubmit = async (formData: Component) => {
         />
       </div>
 
-      <div className="overflow-auto bg-white rounded-lg shadow max-h-[70vh]">
+      {/* DESKTOP TABLE VIEW */}
+      <div className="overflow-auto bg-white rounded-lg shadow max-h-[70vh] hidden md:block">
         <table className="min-w-full text-sm">
         <thead className="bg-gray-50 sticky top-0">
             <tr>
@@ -447,6 +451,94 @@ const handleModalSubmit = async (formData: Component) => {
 
 
         </table>
+      </div>
+      {/* MOBILE LIST VIEW — HIỂN THỊ ĐẦY ĐỦ TẤT CẢ CỘT */}
+      <div className="md:hidden space-y-3">
+        {components.map((c) => (
+          <div key={c.id} className="p-3 border rounded-lg shadow-sm bg-white">
+
+            {/* TÊN + MÃ SP */}
+            <div className="font-semibold text-base">{c.product_name}</div>
+            <div className="text-sm text-gray-500 mb-2">{c.product_code}</div>
+
+            {/* ẢNH */}
+            {c.product_photo && (
+              <img
+                src={c.product_photo}
+                className="w-full h-40 object-cover rounded-lg mb-3"
+              />
+            )}
+
+            {/* TOÀN BỘ THUỘC TÍNH TỪ BẢNG WEB */}
+            <div className="text-sm space-y-1">
+
+              <div><b>Danh mục:</b> {c.category}</div>
+
+              <div><b>Thuộc tính:</b> {c.properties}</div>
+
+              <div>
+                <b>Giá bán lẻ:</b> {c.amount?.toLocaleString()} đ
+              </div>
+
+              <div>
+                <b>Giá buôn:</b> {c.wholesale_price?.toLocaleString()} đ
+              </div>
+
+              <div><b>Thương hiệu:</b> {c.trademark}</div>
+
+              <div><b>Bảo hành:</b> {c.guarantee}</div>
+
+              <div><b>Tồn kho:</b> {c.stock}</div>
+
+              <div>
+                <b>Mô tả:</b>{" "}
+                {(!c.description || c.description.length < 60) ? (
+                  <span>{c.description || "(Không có mô tả)"}</span>
+                ) : (
+                  <button
+                    onClick={() => Swal.fire({
+                      title: "Mô tả sản phẩm",
+                      html: `<div style='text-align:left; font-size:14px;'>${c.description}</div>`,
+                      confirmButtonText: "Đóng"
+                    })}
+                    className="text-blue-600 underline"
+                  >
+                    Xem mô tả
+                  </button>
+                )}
+              </div>
+
+
+              <div>
+                <b>Link sản phẩm:</b>{" "}
+                <a href={c.product_link} target="_blank" className="text-blue-600 underline">
+                  Mở liên kết
+                </a>
+              </div>
+
+            </div>
+
+            {/* BUTTONS */}
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={() => handleEditClick(c.id)}
+                className="px-3 py-2 bg-blue-600 text-white rounded-md flex items-center gap-1 w-1/2 justify-center"
+              >
+                <Edit2 size={16} />
+                Sửa
+              </button>
+
+              <button
+                onClick={() => deleteComponent(c.id)}
+                className="px-3 py-2 bg-red-600 text-white rounded-md flex items-center gap-1 w-1/2 justify-center"
+              >
+                <Trash2 size={16} />
+                Xóa
+              </button>
+            </div>
+
+          </div>
+        ))}
       </div>
 
       <div className="mt-4 flex justify-end">
